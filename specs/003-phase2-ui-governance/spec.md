@@ -20,7 +20,7 @@
 
 As a Branch Manager in Egypt, I want to toggle the management dashboard between Arabic and English so that I can manage my site using my native language with proper Right-to-Left (RTL) mirroring.
 
-**Why this priority**: Essential for local market adoption and operational efficiency for non-English speaking managers.
+**Why this priority**: Essential for local market adoption and operational efficiency for non-English-speaking managers.
 
 **Independent Test**: Can be tested by navigating to the dashboard and clicking the language switcher; verify all components (sidebar, navigation, content) mirror correctly and text is translated.
 

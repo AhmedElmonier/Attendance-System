@@ -6,15 +6,15 @@ from src.models.governance import ApprovalRequest
 def apply_changes(
     entity_type: str, entity_id: UUID, change_payload: Dict[str, Any]
 ) -> bool:
-    if entity_type == "EMPLOYEE":
-        pass
-    elif entity_type == "BIOMETRIC":
-        pass
-    elif entity_type == "SITE":
-        pass
-    else:
-        raise ValueError(f"Unknown entity type: {entity_type}")
-    return True
+    # TODO(#issue): implement entity mutation for approval workflow
+    # - EMPLOYEE: update name_ar, name_en, status
+    # - BIOMETRIC: replace biometric_templates vector_blob
+    # - SITE: update site configuration
+    # - Must be idempotent and record old_values in AuditLog
+    raise NotImplementedError(
+        f"apply_changes not implemented for entity type '{entity_type}'. "
+        "Implement before approving requests."
+    )
 
 
 class ApprovalService:
@@ -49,13 +49,17 @@ class ApprovalService:
     def review_request(
         self,
         request_id: UUID,
+        tenant_id: UUID,
         checker_id: UUID,
         action: str,
         reason: Optional[str] = None,
     ) -> ApprovalRequest:
         request = (
             self.db.query(ApprovalRequest)
-            .filter(ApprovalRequest.id == request_id)
+            .filter(
+                ApprovalRequest.id == request_id,
+                ApprovalRequest.tenant_id == tenant_id,
+            )
             .first()
         )
         if not request:
@@ -79,13 +83,9 @@ class ApprovalService:
         request.reason = reason
 
         if action == "APPROVED":
-            try:
-                apply_changes(
-                    request.entity_type, request.entity_id, request.change_payload
-                )
-            except Exception:
-                self.db.rollback()
-                raise
+            apply_changes(
+                request.entity_type, request.entity_id, request.change_payload
+            )
 
         try:
             self.db.commit()

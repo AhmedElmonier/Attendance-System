@@ -40,12 +40,14 @@ def test_maker_checker_self_approval_blocked():
             pass
 
     fake_session = FakeSession()
+    tenant_id = uuid4()
     fake_session._req = type(
         "obj",
         (),
         {
             "id": req_id,
             "maker_id": maker_id,
+            "tenant_id": tenant_id,
             "entity_type": "EMPLOYEE",
             "entity_id": uuid4(),
             "change_payload": {},
@@ -57,7 +59,7 @@ def test_maker_checker_self_approval_blocked():
 
     service = ApprovalService(fake_session)
     with pytest.raises(ValueError, match="Self-approval is forbidden"):
-        service.review_request(req_id, maker_id, "APPROVED")
+        service.review_request(req_id, tenant_id, maker_id, "APPROVED")
 
 
 def test_maker_checker_approval_succeeds_for_different_users():
@@ -90,12 +92,14 @@ def test_maker_checker_approval_succeeds_for_different_users():
             pass
 
     fake_session = FakeSession()
+    tenant_id = uuid4()
     fake_session._req = type(
         "obj",
         (),
         {
             "id": req_id,
             "maker_id": maker_id,
+            "tenant_id": tenant_id,
             "entity_type": "EMPLOYEE",
             "entity_id": uuid4(),
             "change_payload": {},
@@ -106,5 +110,5 @@ def test_maker_checker_approval_succeeds_for_different_users():
     )()
 
     service = ApprovalService(fake_session)
-    result = service.review_request(req_id, checker_id, "APPROVED")
-    assert result.status == "APPROVED"
+    with pytest.raises(NotImplementedError):
+        service.review_request(req_id, tenant_id, checker_id, "APPROVED")

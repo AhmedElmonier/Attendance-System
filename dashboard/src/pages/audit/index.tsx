@@ -1,32 +1,43 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 
-const mockLogs = [
-  {
-    id: "log-1",
-    timestamp: "2026-03-22 14:32:10",
-    actor: "Admin User",
-    action: "UPDATE",
-    entity: "EMPLOYEE",
-    ip: "192.168.1.100",
-  },
-  {
-    id: "log-2",
-    timestamp: "2026-03-22 10:15:00",
-    actor: "Branch Manager",
-    action: "LOGIN",
-    entity: "SYSTEM",
-    ip: "10.0.0.5",
-  },
-];
+interface AuditLogEntry {
+  id: string;
+  timestamp: string;
+  actor: string;
+  action: string;
+  entity: string;
+  ip: string;
+}
 
 export default function AuditLogs() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [logs, setLogs] = useState<AuditLogEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const t = useTranslations('Audit');
 
-  const filteredLogs = mockLogs.filter(
+  useEffect(() => {
+    async function fetchLogs() {
+      try {
+        setIsLoading(true);
+        const res = await fetch('/api/v1/governance/audit-logs');
+        if (!res.ok) throw new Error(`Failed to load audit logs: ${res.status}`);
+        const data = await res.json();
+        setLogs(data);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unknown error');
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchLogs();
+  }, []);
+
+  const filteredLogs = logs.filter(
     (log) =>
       log.actor.toLowerCase().includes(searchTerm.toLowerCase()) ||
       log.action.toLowerCase().includes(searchTerm.toLowerCase()),
@@ -75,34 +86,44 @@ export default function AuditLogs() {
           </button>
         </div>
 
-        <table className="w-full text-left text-sm text-slate-600">
-          <thead className="text-xs uppercase bg-slate-100 text-slate-700 border-b border-slate-200">
-            <tr>
-              <th scope="col" className="px-6 py-4">{t('colTimestamp')}</th>
-              <th scope="col" className="px-6 py-4">{t('colActor')}</th>
-              <th scope="col" className="px-6 py-4">{t('colAction')}</th>
-              <th scope="col" className="px-6 py-4">{t('colEntity')}</th>
-              <th scope="col" className="px-6 py-4">{t('colIpAddress')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredLogs.map((log) => (
-              <tr key={log.id} className="border-b border-slate-100 hover:bg-slate-50">
-                <td className="px-6 py-4 font-mono text-xs">{log.timestamp}</td>
-                <td className="px-6 py-4 font-medium text-slate-800">{log.actor}</td>
-                <td className="px-6 py-4">
-                  <span className="px-2 py-1 bg-slate-200 text-slate-700 rounded text-xs font-bold">
-                    {log.action}
-                  </span>
-                </td>
-                <td className="px-6 py-4">{log.entity}</td>
-                <td className="px-6 py-4 font-mono text-xs text-slate-500">{log.ip}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {isLoading && (
+          <div className="p-8 text-center text-slate-500">{t('loading')}</div>
+        )}
 
-        {filteredLogs.length === 0 && (
+        {error && (
+          <div className="p-8 text-center text-red-600">{t('error', { message: error })}</div>
+        )}
+
+        {!isLoading && !error && (
+          <table className="w-full text-left text-sm text-slate-600">
+            <thead className="text-xs uppercase bg-slate-100 text-slate-700 border-b border-slate-200">
+              <tr>
+                <th scope="col" className="px-6 py-4">{t('colTimestamp')}</th>
+                <th scope="col" className="px-6 py-4">{t('colActor')}</th>
+                <th scope="col" className="px-6 py-4">{t('colAction')}</th>
+                <th scope="col" className="px-6 py-4">{t('colEntity')}</th>
+                <th scope="col" className="px-6 py-4">{t('colIpAddress')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredLogs.map((log) => (
+                <tr key={log.id} className="border-b border-slate-100 hover:bg-slate-50">
+                  <td className="px-6 py-4 font-mono text-xs">{log.timestamp}</td>
+                  <td className="px-6 py-4 font-medium text-slate-800">{log.actor}</td>
+                  <td className="px-6 py-4">
+                    <span className="px-2 py-1 bg-slate-200 text-slate-700 rounded text-xs font-bold">
+                      {log.action}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">{log.entity}</td>
+                  <td className="px-6 py-4 font-mono text-xs text-slate-500">{log.ip}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        {!isLoading && !error && filteredLogs.length === 0 && (
           <div className="p-8 text-center text-slate-500">{t('noLogs')}</div>
         )}
       </div>

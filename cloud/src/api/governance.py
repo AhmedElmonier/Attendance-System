@@ -1,3 +1,4 @@
+import os
 from uuid import UUID
 from datetime import datetime
 from typing import List, Optional
@@ -5,11 +6,80 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from cloud.src.db.connection import get_db
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, Session
 
 from src.services.approval_service import ApprovalService
 
 router = APIRouter(prefix="/api/v1/governance", tags=["governance"])
+
+_engine = None
+_SessionFactory = None
+
+
+def _get_engine():
+    global _engine, _SessionFactory
+    if _engine is None:
+        db_url = os.getenv("DATABASE_URL")
+        if not db_url:
+            _engine = None
+        else:
+            _engine = create_engine(db_url, pool_pre_ping=True)
+            _SessionFactory = sessionmaker(bind=_engine)
+    return _engine, _SessionFactory
+
+
+def get_db_session() -> Session:
+    _, factory = _get_engine()
+    if factory is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Database not configured",
+        )
+    return factory()
+
+
+def get_current_user_id(request: Request) -> UUID:
+    authorization = request.headers.get("Authorization")
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=401, detail="Authorization must use Bearer scheme"
+        )
+
+    token = authorization[7:]
+    jwt_secret = os.getenv("JWT_SECRET")
+    if not jwt_secret:
+        raise HTTPException(
+            status_code=500, detail="Server misconfiguration: JWT_SECRET not set"
+        )
+
+    import jwt
+
+    try:
+        payload = jwt.decode(
+            token,
+            jwt_secret,
+            algorithms=["HS256"],
+            options={"require": ["user_id", "exp"]},
+        )
+    except jwt.ExpiredSignatureError as e:
+        raise HTTPException(status_code=401, detail=f"Token expired: {e}") from e
+    except jwt.InvalidTokenError as e:
+        raise HTTPException(status_code=401, detail=f"Invalid token: {e}") from e
+
+    user_id_str = payload.get("user_id")
+    if not user_id_str:
+        raise HTTPException(status_code=401, detail="Token missing user_id claim")
+
+    try:
+        return UUID(user_id_str)
+    except (ValueError, TypeError) as err:
+        raise HTTPException(
+            status_code=401, detail="Invalid user_id format in token"
+        ) from err
 
 
 class ApprovalAction(BaseModel):
@@ -33,50 +103,9 @@ class AuditLogResponse(BaseModel):
     timestamp: datetime
 
 
-def get_current_user_id(request: Request) -> UUID:
-    user_id = request.headers.get("X-User-ID")
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Missing X-User-ID header")
-    try:
-        return UUID(user_id)
-    except ValueError:
-        raise HTTPException(status_code=401, detail="Invalid X-User-ID format")
-
-
 @router.get("/approvals", response_model=List[ApprovalResponse])
 async def list_approvals(request: Request, status: Optional[str] = None):
     return []
-
-
-class MockSession:
-    def __init__(self):
-        self._data = {}
-
-    def add(self, obj):
-        self._data[obj.id] = obj
-
-    def query(self, model):
-        class QueryStub:
-            def __init__(self, session, model):
-                self._session = session
-                self._model = model
-
-            def filter(self, *args):
-                return self
-
-            def first(self):
-                return None
-
-        return QueryStub(self, model)
-
-    def commit(self):
-        pass
-
-    def refresh(self, obj):
-        pass
-
-    def rollback(self):
-        pass
 
 
 @router.post("/approvals/{approval_id}/action", response_model=ApprovalResponse)
@@ -86,11 +115,23 @@ async def action_approval(
     request: Request,
 ):
     checker_id = get_current_user_id(request)
-    db_session = MockSession()
-    service = ApprovalService(db_session)
+
+    tenant_id_str = request.headers.get("X-Tenant-ID")
+    if not tenant_id_str:
+        raise HTTPException(status_code=400, detail="Missing X-Tenant-ID header")
     try:
+        tenant_id = UUID(tenant_id_str)
+    except (ValueError, TypeError) as err:
+        raise HTTPException(
+            status_code=400, detail="Invalid X-Tenant-ID format"
+        ) from err
+
+    try:
+        db = get_db_session()
+        service = ApprovalService(db)
         updated_request = service.review_request(
             request_id=approval_id,
+            tenant_id=tenant_id,
             checker_id=checker_id,
             action=payload.action,
             reason=payload.reason,
@@ -104,6 +145,8 @@ async def action_approval(
         }
     except ValueError as e:
         raise HTTPException(status_code=403, detail=str(e)) from e
+    finally:
+        db.close()
 
 
 @router.get("/audit-logs", response_model=List[AuditLogResponse])

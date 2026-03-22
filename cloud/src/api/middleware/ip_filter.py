@@ -44,8 +44,10 @@ class IPFilterMiddleware(BaseHTTPMiddleware):
 
             try:
                 allowed_cidrs, is_enabled = await self.get_allowed_ips(tenant_id)
-            except Exception:
-                logger.error(f"Failed to retrieve allow-list for tenant {tenant_id}")
+            except Exception as exc:
+                logger.exception(
+                    f"Failed to retrieve allow-list for tenant {tenant_id}: {exc}"
+                )
                 return JSONResponse(
                     status_code=403,
                     content={
@@ -61,15 +63,26 @@ class IPFilterMiddleware(BaseHTTPMiddleware):
                     except ValueError:
                         logger.warning(f"Ignoring malformed CIDR: {cidr}")
 
-                if valid_networks:
-                    is_allowed = any(client_ip in network for network in valid_networks)
-                    if not is_allowed:
-                        return JSONResponse(
-                            status_code=403,
-                            content={
-                                "detail": "Access forbidden: IP address not in allow-list."
-                            },
-                        )
+                if not valid_networks:
+                    logger.error(
+                        f"No valid CIDRs in allow-list for tenant {tenant_id}: "
+                        f"all {len(allowed_cidrs)} entries were malformed"
+                    )
+                    return JSONResponse(
+                        status_code=403,
+                        content={
+                            "detail": "Access forbidden: no valid IP ranges configured."
+                        },
+                    )
+
+                is_allowed = any(client_ip in network for network in valid_networks)
+                if not is_allowed:
+                    return JSONResponse(
+                        status_code=403,
+                        content={
+                            "detail": "Access forbidden: IP address not in allow-list."
+                        },
+                    )
 
         response = await call_next(request)
         return response

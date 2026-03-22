@@ -41,7 +41,9 @@
     "colAction": "Action",
     "colEntity": "Entity",
     "colIpAddress": "IP Address",
-    "noLogs": "No logs match your search criteria."
+    "noLogs": "No logs match your search criteria.",
+    "loading": "Loading audit logs...",
+    "error": "Error: {message}"
   },
   "Security": {
     "title": "Security Configuration",

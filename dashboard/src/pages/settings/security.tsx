@@ -8,10 +8,16 @@ function isValidCIDR(cidr: string): boolean {
     const parts = cidr.trim().split('/');
     if (parts.length !== 2) return false;
     const ip = parts[0];
-    const prefix = parseInt(parts[1], 10);
+    const prefixStr = parts[1];
+    const prefix = parseInt(prefixStr, 10);
+    if (Number.isNaN(prefix)) return false;
     const ipParts = ip.split('.');
     if (ipParts.length !== 4) return false;
-    if (ipParts.some((p) => parseInt(p, 10) > 255 || parseInt(p, 10) < 0)) return false;
+    for (const part of ipParts) {
+      if (part === '') return false;
+      const num = parseInt(part, 10);
+      if (Number.isNaN(num) || num < 0 || num > 255) return false;
+    }
     if (prefix < 0 || prefix > 32) return false;
     return true;
   } catch {
@@ -29,22 +35,45 @@ export default function SecuritySettings() {
   const [ipEnabled, setIpEnabled] = useState(false);
   const [ipList, setIpList] = useState("192.168.1.0/24\n10.0.0.0/8");
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const t = useTranslations('Security');
 
   function handleIpListChange(value: string) {
     setIpList(value);
     const invalid = validateIpList(value);
     setValidationError(invalid.length > 0 ? t('invalidCidr', { entries: invalid.join(', ') }) : null);
+    setSaveError(null);
   }
 
-  function handleSave() {
+  async function handleSave() {
     const invalid = validateIpList(ipList);
     if (invalid.length > 0) {
       setValidationError(t('invalidCidr', { entries: invalid.join(', ') }));
       return;
     }
     setValidationError(null);
-    console.log('Saving IP list:', ipList);
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      const res = await fetch('/api/v1/settings/security/ip-allowlist', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
+        },
+        body: JSON.stringify({ enabled: ipEnabled, allowed_cidrs: ipList.split('\n').map((l) => l.trim()).filter(Boolean) }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || `Save failed: ${res.status}`);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      setSaveError(msg);
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -87,15 +116,18 @@ export default function SecuritySettings() {
           {validationError && (
             <p className="text-xs text-red-600 mt-2">{validationError}</p>
           )}
+          {saveError && (
+            <p className="text-xs text-red-600 mt-2">{saveError}</p>
+          )}
           <p className="text-xs text-slate-500 mt-2">{t('cidrHint')}</p>
 
           <div className="mt-6 flex justify-end">
             <button
               className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50"
-              disabled={!ipEnabled || validationError !== null}
+              disabled={!ipEnabled || validationError !== null || isSaving}
               onClick={handleSave}
             >
-              {t('save')}
+              {isSaving ? t('saving') : t('save')}
             </button>
           </div>
         </div>
