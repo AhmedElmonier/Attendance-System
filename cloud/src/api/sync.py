@@ -77,6 +77,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from src.api.governance import router as governance_router  # noqa: E402
+from src.api.settings import router as settings_router  # noqa: E402
+
+app.include_router(governance_router)
+app.include_router(settings_router)
+
 
 @app.get("/health")
 async def health_check():

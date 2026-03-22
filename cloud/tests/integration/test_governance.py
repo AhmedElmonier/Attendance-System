@@ -110,5 +110,5 @@ def test_maker_checker_approval_succeeds_for_different_users():
     )()
 
     service = ApprovalService(fake_session)
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(ValueError, match="apply_changes not implemented"):
         service.review_request(req_id, tenant_id, checker_id, "APPROVED")
