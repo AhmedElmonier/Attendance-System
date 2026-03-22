@@ -34,7 +34,7 @@ class ImageQualityChecker:
 
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         blur_score = self._calculate_blur(gray)
-        if blur_score > self.blur_threshold:
+        if blur_score < self.blur_threshold:
             return False, blur_score, f"Image too blurry ({blur_score:.1f})"
 
         brightness = np.mean(gray)
@@ -49,7 +49,7 @@ class ImageQualityChecker:
 
         quality_score = min(
             1.0,
-            (blur_score / self.MAX_BLUR_SCORE) * 0.4
+            (min(blur_score, self.MAX_BLUR_SCORE) / self.MAX_BLUR_SCORE) * 0.4
             + (contrast / 100) * 0.3
             + (
                 (brightness - self.MIN_BRIGHTNESS)
@@ -75,7 +75,9 @@ class EnrollmentWizard:
         self, pose_detector, quality_checker: Optional[ImageQualityChecker] = None
     ):
         self.pose_detector = pose_detector
-        self.quality_checker = quality_checker  # type: ignore
+        self.quality_checker = (
+            quality_checker if quality_checker is not None else ImageQualityChecker()
+        )
         self._reset_state()
 
     def _reset_state(self):

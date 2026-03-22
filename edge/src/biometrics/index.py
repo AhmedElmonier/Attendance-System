@@ -6,9 +6,19 @@ logger = logging.getLogger(__name__)
 
 
 class VectorIndex:
-    def __init__(self, embedding_dim: int = 512, space: str = "cosine"):
+    def __init__(
+        self,
+        embedding_dim: int = 512,
+        space: str = "cosine",
+        max_elements: int = 10000,
+        ef_construction: int = 100,
+        M: int = 16,
+    ):
         self.embedding_dim = embedding_dim
         self.space = space
+        self.max_elements = max_elements
+        self.ef_construction = ef_construction
+        self.M = M
         self._labels: List[int] = []
         self._employee_ids: List[str] = []
         self._backend = None
@@ -40,8 +50,13 @@ class VectorIndex:
         hnsw_space = space_map.get(self.space, "cosine")
 
         self._index = hnswlib.Index(space=hnsw_space, dim=self.embedding_dim)
+        self._index.init_index(
+            max_elements=self.max_elements,
+            ef_construction=self.ef_construction,
+            M=self.M,
+        )
         self._index.set_num_threads(4)
-        self._index.set_ef(100)
+        self._index.set_ef(self.ef_construction)
 
     def _init_faiss_index(self):
         import faiss
@@ -128,11 +143,10 @@ class VectorIndex:
             results = []
             for idx, dist in zip(labels[0], distances[0]):
                 if idx < len(self._employee_ids):
-                    similarity = (
-                        1.0 / (1.0 + float(dist))
-                        if self.space != "cosine"
-                        else float(dist)
-                    )
+                    if self.space == "cosine":
+                        similarity = 1.0 - float(dist)
+                    else:
+                        similarity = 1.0 / (1.0 + float(dist))
                     results.append((self._employee_ids[idx], similarity, int(idx)))
             return results
 
@@ -174,13 +188,44 @@ class VectorIndex:
         except ValueError:
             return False
 
-        self._employee_ids.pop(idx)
-        self._labels.pop(idx)
+        removed_emp_id = self._employee_ids.pop(idx)
+        removed_label = self._labels.pop(idx)
 
         if self._backend == "numpy":
             self._vectors = np.delete(self._vectors, idx, axis=0)
+        elif self._backend == "hnswlib":
+            try:
+                self._index.mark_deleted(removed_label)
+            except Exception as e:
+                logger.warning(f"HNSW mark_deleted failed: {e}, rebuilding index")
+                self._rebuild_hnsw_index()
+        elif self._backend == "faiss":
+            self._rebuild_faiss_index()
 
         return True
+
+    def _rebuild_hnsw_index(self):
+        self._init_hnsw_index()
+        entries = list(zip(self._employee_ids, self._labels))
+        for emp_id, _ in entries:
+            tmpl = self.get_vector_by_employee(emp_id)
+            if tmpl is not None:
+                self.add(emp_id, tmpl)
+
+    def _rebuild_faiss_index(self):
+        import faiss
+
+        if self.space == "cosine":
+            self._index = faiss.IndexFlatIP(self.embedding_dim)
+        else:
+            self._index = faiss.IndexFlatL2(self.embedding_dim)
+        for emp_id in self._employee_ids:
+            vec = self.get_vector_by_employee(emp_id)
+            if vec is not None:
+                self.add(emp_id, vec)
+
+    def get_vector_by_employee(self, employee_id: str):
+        return None
 
     def get_size(self) -> int:
         return len(self._labels)

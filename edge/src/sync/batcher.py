@@ -40,6 +40,8 @@ class BatchCreator:
                 "confidence": float(log.confidence)
                 if hasattr(log, "confidence")
                 else 0.0,
+                "zone": log.zone if hasattr(log, "zone") else "green",
+                "requires_review": bool(getattr(log, "requires_review", False)),
                 "integrity_hash": self._generate_event_hash(log),
             }
             events.append(event_dict)
@@ -64,7 +66,14 @@ class BatchCreator:
         return batches
 
     def _generate_event_hash(self, event: Any) -> str:
-        data = f"{event.id if hasattr(event, 'id') else ''}{event.employee_id if hasattr(event, 'employee_id') else ''}{event.timestamp if hasattr(event, 'timestamp') else ''}".encode()
+        event_id = event.id if hasattr(event, "id") else str(event)
+        employee_id = event.employee_id if hasattr(event, "employee_id") else ""
+        timestamp = (
+            event.timestamp.isoformat()
+            if hasattr(event, "timestamp") and isinstance(event.timestamp, datetime)
+            else str(event.timestamp)
+        )
+        data = f"{event_id}{employee_id}{timestamp}".encode()
         return hashlib.sha256(data).hexdigest()
 
     def _generate_batch_hash(self, events: List[Dict[str, Any]]) -> str:

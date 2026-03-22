@@ -39,7 +39,13 @@ class AttendanceSystem:
         return {}
 
     def _init_database(self) -> EncryptedDB:
-        db_key = os.environ.get("ATTENDANCE_DB_KEY", "default_dev_key_32_chars_needed")
+        db_key = os.environ.get("ATTENDANCE_DB_KEY")
+        if not db_key:
+            logger.error("ATTENDANCE_DB_KEY environment variable is required")
+            raise RuntimeError(
+                "ATTENDANCE_DB_KEY environment variable is required. "
+                "Set it before running the application."
+            )
         db_path = self.config.get("database", {}).get("path", "edge/data/attendance.db")
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
         return create_db(db_path, db_key)
@@ -171,7 +177,10 @@ class AttendanceSystem:
 
                     if match_result["matched"]:
                         log = self.db.add_attendance_log(
-                            match_result["employee_id"], match_result["confidence"]
+                            match_result["employee_id"],
+                            match_result["confidence"],
+                            match_result["zone"],
+                            match_result.get("requires_review", False),
                         )
                         logger.info(
                             f"Clock-in recorded: {log.id} (confidence: {match_result['confidence']:.3f})"

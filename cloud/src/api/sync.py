@@ -22,6 +22,8 @@ class AttendanceEvent(BaseModel):
     timestamp: str
     confidence: float
     integrity_hash: str
+    zone: str = "green"
+    requires_review: bool = False
 
 
 class SyncRequest(BaseModel):
@@ -52,11 +54,15 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down Attendance API")
 
 
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "").split(",") or [
+    "http://localhost:3000"
+]
+
 app = FastAPI(title="Attendance System API", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -96,7 +102,12 @@ async def sync_attendance(
         logger.warning(f"NTP drift check failed: {drift_msg}")
         raise HTTPException(status_code=400, detail=drift_msg)
 
-    tenant_id = os.getenv("DEFAULT_TENANT_ID", str(uuid.uuid4()))
+    tenant_id = os.getenv("DEFAULT_TENANT_ID")
+    if not tenant_id:
+        logger.error("DEFAULT_TENANT_ID environment variable not set")
+        raise HTTPException(
+            status_code=500, detail="Server configuration error: missing tenant context"
+        )
 
     rejected = []
     synced_count = 0
@@ -115,8 +126,8 @@ async def sync_attendance(
                     """
                     INSERT INTO attendance_events 
                     (id, tenant_id, employee_id, event_timestamp, confidence_score, 
-                     event_type, integrity_hash, client_timestamp, synced_at)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+                     zone, requires_review, event_type, integrity_hash, client_timestamp, synced_at)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
                     ON CONFLICT (id) DO NOTHING
                     """,
                     event.event_id,
@@ -124,6 +135,8 @@ async def sync_attendance(
                     event.employee_id,
                     event.timestamp,
                     event.confidence,
+                    event.zone,
+                    event.requires_review,
                     "clock_in",
                     event.integrity_hash,
                     request.kiosk_timestamp,

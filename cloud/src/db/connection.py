@@ -1,5 +1,6 @@
 import asyncpg
 import os
+import asyncio
 from typing import Optional
 import logging
 
@@ -8,21 +9,32 @@ logger = logging.getLogger(__name__)
 
 class Database:
     _pool: Optional[asyncpg.Pool] = None
+    _lock: asyncio.Lock = None
 
     @classmethod
     async def connect(cls, database_url: Optional[str] = None):
+        if cls._lock is None:
+            cls._lock = asyncio.Lock()
+
         if cls._pool is not None:
             return cls._pool
 
-        db_url = database_url or os.getenv(
-            "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/attendance"
-        )
+        async with cls._lock:
+            if cls._pool is not None:
+                return cls._pool
 
-        cls._pool = await asyncpg.create_pool(
-            db_url, min_size=5, max_size=20, command_timeout=60
-        )
-        logger.info("Database connection pool created")
-        return cls._pool
+            db_url = database_url or os.getenv("DATABASE_URL")
+            if not db_url:
+                raise RuntimeError(
+                    "DATABASE_URL environment variable is required. "
+                    "Provide it via environment or explicit parameter."
+                )
+
+            cls._pool = await asyncpg.create_pool(
+                db_url, min_size=5, max_size=20, command_timeout=60
+            )
+            logger.info("Database connection pool created")
+            return cls._pool
 
     @classmethod
     async def disconnect(cls):

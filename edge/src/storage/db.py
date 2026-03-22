@@ -35,6 +35,8 @@ class AttendanceLog:
     timestamp: datetime
     confidence: float
     sync_status: str = "pending"
+    zone: str = "green"
+    requires_review: bool = False
 
 
 class EncryptedDB:
@@ -47,7 +49,8 @@ class EncryptedDB:
     def _get_connection(self):
         if self._conn is None:
             self._conn = sqlcipher3.connect(self.db_path)
-            self._conn.execute(f"PRAGMA key = '{self.key}'")
+            hex_key = self.key.encode("utf-8").hex()
+            self._conn.execute(f"PRAGMA key = x'{hex_key}'")
             self._conn.execute("PRAGMA cipher_page_size = 4096")
         return self._conn
 
@@ -80,6 +83,8 @@ class EncryptedDB:
                 employee_id TEXT NOT NULL,
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
                 confidence REAL NOT NULL,
+                zone TEXT DEFAULT 'green',
+                requires_review INTEGER DEFAULT 0,
                 sync_status TEXT DEFAULT 'pending',
                 FOREIGN KEY (employee_id) REFERENCES employees(id)
             )
@@ -166,12 +171,18 @@ class EncryptedDB:
             for row in cursor.fetchall()
         ]
 
-    def add_attendance_log(self, employee_id: str, confidence: float) -> AttendanceLog:
+    def add_attendance_log(
+        self,
+        employee_id: str,
+        confidence: float,
+        zone: str = "green",
+        requires_review: bool = False,
+    ) -> AttendanceLog:
         log_id = str(uuid.uuid4())
         conn = self._get_connection()
         conn.execute(
-            "INSERT INTO attendance_logs (id, employee_id, confidence, sync_status) VALUES (?, ?, ?, 'pending')",
-            (log_id, employee_id, confidence),
+            "INSERT INTO attendance_logs (id, employee_id, confidence, zone, requires_review, sync_status) VALUES (?, ?, ?, ?, ?, 'pending')",
+            (log_id, employee_id, confidence, zone, 1 if requires_review else 0),
         )
         conn.commit()
         return AttendanceLog(
@@ -179,13 +190,15 @@ class EncryptedDB:
             employee_id=employee_id,
             timestamp=datetime.utcnow(),
             confidence=confidence,
+            zone=zone,
+            requires_review=requires_review,
             sync_status="pending",
         )
 
     def get_pending_logs(self, limit: int = 500) -> List[AttendanceLog]:
         conn = self._get_connection()
         cursor = conn.execute(
-            """SELECT id, employee_id, timestamp, confidence, sync_status 
+            """SELECT id, employee_id, timestamp, confidence, zone, requires_review, sync_status 
                FROM attendance_logs 
                WHERE sync_status = 'pending' 
                ORDER BY timestamp 
@@ -200,7 +213,9 @@ class EncryptedDB:
                 if isinstance(row[2], str)
                 else row[2],
                 confidence=row[3],
-                sync_status=row[4],
+                zone=row[4] if row[4] else "green",
+                requires_review=bool(row[5]) if row[5] else False,
+                sync_status=row[6],
             )
             for row in cursor.fetchall()
         ]

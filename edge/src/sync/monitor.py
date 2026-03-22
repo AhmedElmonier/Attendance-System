@@ -110,11 +110,19 @@ class SyncTrigger:
             response = self._send_batch(batch, headers)
 
             if response.get("status") == "success":
-                log_ids = [log.id for log in pending_logs]
-                self.db.mark_logs_synced(log_ids)
+                rejected_ids = set(response.get("rejected") or [])
+                succeeded_logs = [
+                    log for log in pending_logs if log.id not in rejected_ids
+                ]
+                succeeded_ids = [log.id for log in succeeded_logs]
+
+                if succeeded_ids:
+                    self.db.mark_logs_synced(succeeded_ids)
+
                 return {
                     "status": "success",
-                    "synced_count": len(log_ids),
+                    "synced_count": len(succeeded_ids),
+                    "rejected_count": len(rejected_ids),
                     "batch_id": batch.batch_id,
                 }
             else:

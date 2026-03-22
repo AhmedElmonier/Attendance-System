@@ -1,9 +1,9 @@
 import cv2
 import numpy as np
-import onnxruntime as ort
 from dataclasses import dataclass
 from typing import List, Optional
 import logging
+import hashlib
 
 logger = logging.getLogger(__name__)
 
@@ -96,8 +96,9 @@ class EmbeddingExtractor:
         )
 
     def _create_placeholder_embedding(self, preprocessed: np.ndarray) -> np.ndarray:
-        np.random.seed(42)
-        embedding = np.random.randn(self.EMBEDDING_DIM).astype(np.float32)
+        data_hash = int(hashlib.sha256(preprocessed.tobytes()).hexdigest()[:12], 16)
+        rng = np.random.default_rng(data_hash)
+        embedding = rng.standard_normal(self.EMBEDDING_DIM).astype(np.float32)
         embedding = embedding / np.linalg.norm(embedding)
         return embedding.reshape(1, -1)
 

@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS attendance_events (
     device_id UUID REFERENCES devices(id),
     event_timestamp TIMESTAMPTZ NOT NULL,
     confidence_score REAL NOT NULL,
+    zone TEXT DEFAULT 'green',
+    requires_review BOOLEAN DEFAULT FALSE,
     event_type TEXT DEFAULT 'clock_in',
     integrity_hash TEXT,
     client_timestamp TIMESTAMPTZ,
@@ -43,7 +45,8 @@ CREATE TABLE IF NOT EXISTS attendance_events (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     
     CONSTRAINT valid_confidence CHECK (confidence_score >= 0 AND confidence_score <= 1),
-    CONSTRAINT valid_event_type CHECK (event_type IN ('clock_in', 'clock_out'))
+    CONSTRAINT valid_event_type CHECK (event_type IN ('clock_in', 'clock_out')),
+    CONSTRAINT valid_zone CHECK (zone IN ('green', 'gray', 'red'))
 );
 
 CREATE TABLE IF NOT EXISTS pending_approvals (
@@ -76,16 +79,24 @@ ALTER TABLE devices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pending_approvals ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY tenant_isolation_attendance ON attendance_events
-    USING (tenant_id = current_setting('app.tenant_id')::UUID);
+    FOR ALL
+    USING (tenant_id = current_setting('app.tenant_id')::UUID)
+    WITH CHECK (tenant_id = current_setting('app.tenant_id')::UUID);
 
 CREATE POLICY tenant_isolation_employees ON employees
-    USING (tenant_id = current_setting('app.tenant_id')::UUID);
+    FOR ALL
+    USING (tenant_id = current_setting('app.tenant_id')::UUID)
+    WITH CHECK (tenant_id = current_setting('app.tenant_id')::UUID);
 
 CREATE POLICY tenant_isolation_devices ON devices
-    USING (tenant_id = current_setting('app.tenant_id')::UUID);
+    FOR ALL
+    USING (tenant_id = current_setting('app.tenant_id')::UUID)
+    WITH CHECK (tenant_id = current_setting('app.tenant_id')::UUID);
 
 CREATE POLICY tenant_isolation_approvals ON pending_approvals
-    USING (tenant_id = current_setting('app.tenant_id')::UUID);
+    FOR ALL
+    USING (tenant_id = current_setting('app.tenant_id')::UUID)
+    WITH CHECK (tenant_id = current_setting('app.tenant_id')::UUID);
 
 CREATE OR REPLACE FUNCTION set_tenant_context(tenant_uuid UUID)
 RETURNS VOID AS $$
