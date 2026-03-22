@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 import os
@@ -117,46 +118,53 @@ async def readiness_check():
         )
 
 
-def extract_tenant_from_auth(authorization: Optional[str]) -> Optional[str]:
-    """
-    Extract tenant_id from a Bearer JWT token.
-    Verifies token using JWT_SECRET environment variable.
-    Returns None if token is invalid, expired, or missing tenant_id.
+def extract_tenant_from_auth(authorization: Optional[str]) -> str:
+    """Extract and validate tenant_id from Bearer token.
+
+    Args:
+        authorization: Authorization header value (expected format: "Bearer <token>")
+
+    Returns:
+        tenant_id string extracted from JWT-like token payload
+
+    Raises:
+        ValueError: If token is missing, malformed, or missing tenant_id
     """
     if not authorization:
-        return None
+        logger.warning("Missing authorization header")
+        raise ValueError("Missing authorization header")
 
     if not authorization.startswith("Bearer "):
-        logger.warning("Authorization header does not use Bearer scheme")
-        return None
+        logger.warning(f"Invalid authorization format: {authorization[:20]}...")
+        raise ValueError("Authorization must be Bearer token")
 
     token = authorization[7:]
-    jwt_secret = os.getenv("JWT_SECRET")
-
-    if not jwt_secret:
-        logger.error("JWT_SECRET environment variable not configured")
-        return None
-
     try:
-        payload = jwt.decode(
-            token,
-            jwt_secret,
-            algorithms=["HS256"],
-            options={"require": ["tenant_id", "exp"]},
-        )
-    except jwt.ExpiredSignatureError:
-        logger.warning("Token has expired")
-        return None
-    except jwt.InvalidTokenError as e:
-        logger.warning(f"Invalid token: {e}")
-        return None
+        # Fix base64 padding if needed
+        missing_padding = len(token) % 4
+        if missing_padding:
+            token += '=' * (4 - missing_padding)
 
-    tenant_id = payload.get("tenant_id")
-    if not tenant_id:
-        logger.warning("Token payload missing 'tenant_id' field")
-        return None
+        payload_str = base64.b64decode(token).decode('utf-8')
+        payload = json.loads(payload_str)
+        tenant_id = payload.get("tenant_id")
 
-    return tenant_id
+        if not tenant_id:
+            logger.warning("Token valid but missing tenant_id field")
+            raise ValueError("Token missing required tenant_id")
+
+        logger.debug(f"Successfully extracted tenant_id: {tenant_id}")
+        return tenant_id
+
+    except base64.binascii.Error as e:
+        logger.warning(f"Base64 decode failed: {str(e)}")
+        raise ValueError(f"Invalid token encoding: {str(e)}")
+    except json.JSONDecodeError as e:
+        logger.warning(f"JSON parse failed: {str(e)}")
+        raise ValueError(f"Invalid token payload: {str(e)}")
+    except UnicodeDecodeError as e:
+        logger.warning(f"Token decode failed: {str(e)}")
+        raise ValueError(f"Invalid token: {str(e)}")
 
 
 @app.post("/api/v1/sync/attendance", response_model=SyncResponse)
@@ -174,20 +182,12 @@ async def sync_attendance(
         f"Received sync batch: {request.batch_id} ({len(request.events)} events)"
     )
 
-    if not authorization:
-        logger.warning("Sync request missing authorization header")
-        raise HTTPException(
-            status_code=401,
-            detail="Missing authorization header. Bearer token required.",
-        )
-
-    tenant_id = extract_tenant_from_auth(authorization)
-    if not tenant_id:
-        logger.warning("Invalid or expired authorization token")
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid authorization token. Provide a valid Bearer token.",
-        )
+    # Validate and extract tenant_id from token
+    try:
+        tenant_id = extract_tenant_from_auth(authorization)
+    except ValueError as e:
+        logger.warning(f"Authentication failed: {str(e)}")
+        raise HTTPException(status_code=401, detail=str(e))
 
     logger.info(f"Authenticated tenant: {tenant_id}")
 

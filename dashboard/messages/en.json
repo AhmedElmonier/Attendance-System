@@ -1,0 +1,23 @@
+{
+  "Navigation": {
+    "dashboard": "Dashboard",
+    "employees": "Employees",
+    "approvals": "Approvals",
+    "audit": "Audit Logs",
+    "settings": "Settings"
+  },
+  "Common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "approve": "Approve",
+    "reject": "Reject",
+    "status": "Status",
+    "actions": "Actions"
+  },
+  "Tooltips": {
+    "ip_info": "Enter one IP range per line using CIDR notation.",
+    "approval_diff": "Review the reference photo before approving biometric updates.",
+    "audit_export": "Export currently filtered logs as CSV"
+  }
+}
