@@ -176,7 +176,7 @@ class PoseDetector:
 
         is_valid = self.is_pose_valid(pose, target_pose)
         status_color = (0, 255, 0) if is_valid else (0, 165, 255)
-        status_text = "✓ Valid" if is_valid else "✗ Adjust position"
+        status_text = "[OK] Valid" if is_valid else "[X] Adjust position"
         cv2.putText(
             output,
             status_text,

@@ -8,7 +8,7 @@
   - Sub-50ms inference on standard Laptop/WSL2 CPU (i5/i7) and $<150ms$ on Raspberry Pi 4.
 - **Alternatives Considered**: 
   - *ResNet50*: Too heavy for edge CPU (approx. 500ms+ inference).
-  - *MediaPipe Face Detection*: Used only for landmarks/Euler angles, not for 512-d embeddings.
+  - *MediaPipe Face Detection*: Provides only coarse 6 keypoints; use **MediaPipe Face Mesh** for 468 dense landmarks and head-pose (Euler angles from pose transformation matrix).
 
 ## Decision: Local Indexing
 - **Choice**: **hnswlib** (Hierarchical Navigable Small World).

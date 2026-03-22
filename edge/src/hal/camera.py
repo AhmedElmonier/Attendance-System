@@ -141,7 +141,9 @@ class HALCamera:
         if self._backend_name == "dshow":
             self._backend = DirectShowBackend(self._device_id)
         elif self._backend_name == "v4l2":
-            self._backend = V4L2Backend()
+            self._backend = V4L2Backend(f"/dev/video{self._device_id}")
+        elif self._backend_name == "simulator":
+            self._backend = CameraSimulator()
         else:
             self._backend = DirectShowBackend(self._device_id)
 

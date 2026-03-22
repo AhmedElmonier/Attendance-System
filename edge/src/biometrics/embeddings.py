@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Tuple
 import logging
 import hashlib
 
@@ -53,7 +53,7 @@ class EmbeddingExtractor:
             logger.error(f"Failed to load model: {e}. Using placeholder.")
             self._init_placeholder_model()
 
-    def preprocess(self, face_crop: np.ndarray) -> np.ndarray:
+    def preprocess(self, face_crop: np.ndarray) -> Tuple[np.ndarray, float]:
         import time
 
         start = time.perf_counter()

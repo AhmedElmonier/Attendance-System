@@ -1,5 +1,5 @@
 import numpy as np
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict
 import logging
 
 logger = logging.getLogger(__name__)
@@ -21,6 +21,7 @@ class VectorIndex:
         self.M = M
         self._labels: List[int] = []
         self._employee_ids: List[str] = []
+        self._employee_vectors: Dict[str, np.ndarray] = {}
         self._backend = None
         self._init_index()
 
@@ -73,24 +74,26 @@ class VectorIndex:
         if vector.shape != (self.embedding_dim,):
             vector = vector.reshape(-1)
 
+        normalized = vector.copy()
         if self.space == "cosine":
-            norm = np.linalg.norm(vector)
+            norm = np.linalg.norm(normalized)
             if norm > 0:
-                vector = vector / norm
+                normalized = normalized / norm
 
         label = len(self._labels)
 
         if self._backend == "hnswlib":
-            vector_2d = vector.reshape(1, -1).astype(np.float32)
+            vector_2d = normalized.reshape(1, -1).astype(np.float32)
             self._index.add_items(vector_2d, label)
         elif self._backend == "faiss":
-            vector_2d = vector.reshape(1, -1).astype(np.float32)
+            vector_2d = normalized.reshape(1, -1).astype(np.float32)
             self._index.add(vector_2d)
         else:
-            self._vectors = np.vstack([self._vectors, vector.reshape(1, -1)])
+            self._vectors = np.vstack([self._vectors, normalized.reshape(1, -1)])
 
         self._labels.append(label)
         self._employee_ids.append(employee_id)
+        self._employee_vectors[employee_id] = normalized
 
         return label
 
@@ -112,9 +115,10 @@ class VectorIndex:
             labels = list(range(len(self._labels), len(self._labels) + len(entries)))
             self._index.add_items(vectors_array, labels)
 
-            for emp_id, label in zip(emp_ids, labels):
+            for emp_id, label, vec in zip(emp_ids, labels, vectors_array):
                 self._employee_ids.append(emp_id)
                 self._labels.append(label)
+                self._employee_vectors[emp_id] = vec
 
             return labels
         else:
@@ -188,8 +192,10 @@ class VectorIndex:
         except ValueError:
             return False
 
-        removed_emp_id = self._employee_ids.pop(idx)
-        removed_label = self._labels.pop(idx)
+        removed_label = self._labels[idx]
+        self._employee_ids.pop(idx)
+        self._labels.pop(idx)
+        self._employee_vectors.pop(employee_id, None)
 
         if self._backend == "numpy":
             self._vectors = np.delete(self._vectors, idx, axis=0)
@@ -206,11 +212,15 @@ class VectorIndex:
 
     def _rebuild_hnsw_index(self):
         self._init_hnsw_index()
-        entries = list(zip(self._employee_ids, self._labels))
-        for emp_id, _ in entries:
-            tmpl = self.get_vector_by_employee(emp_id)
-            if tmpl is not None:
-                self.add(emp_id, tmpl)
+        for emp_id, vector in self._employee_vectors.items():
+            self._add_to_hnsw(emp_id, vector)
+
+    def _add_to_hnsw(self, employee_id: str, vector: np.ndarray):
+        vector_2d = vector.reshape(1, -1).astype(np.float32)
+        label = len(self._labels)
+        self._index.add_items(vector_2d, label)
+        self._labels.append(label)
+        self._employee_ids.append(employee_id)
 
     def _rebuild_faiss_index(self):
         import faiss
@@ -219,13 +229,18 @@ class VectorIndex:
             self._index = faiss.IndexFlatIP(self.embedding_dim)
         else:
             self._index = faiss.IndexFlatL2(self.embedding_dim)
-        for emp_id in self._employee_ids:
-            vec = self.get_vector_by_employee(emp_id)
-            if vec is not None:
-                self.add(emp_id, vec)
+        for emp_id, vector in self._employee_vectors.items():
+            self._add_to_faiss(emp_id, vector)
+
+    def _add_to_faiss(self, employee_id: str, vector: np.ndarray):
+        vector_2d = vector.reshape(1, -1).astype(np.float32)
+        self._index.add(vector_2d)
+        label = len(self._labels)
+        self._labels.append(label)
+        self._employee_ids.append(employee_id)
 
     def get_vector_by_employee(self, employee_id: str):
-        return None
+        return self._employee_vectors.get(employee_id)
 
     def get_size(self) -> int:
         return len(self._labels)
@@ -233,6 +248,7 @@ class VectorIndex:
     def clear(self) -> None:
         self._labels.clear()
         self._employee_ids.clear()
+        self._employee_vectors.clear()
 
         if self._backend == "hnswlib":
             self._init_hnsw_index()
@@ -248,6 +264,7 @@ class VectorIndex:
                 "employee_ids": self._employee_ids,
                 "embedding_dim": self.embedding_dim,
                 "space": self.space,
+                "employee_vectors": self._employee_vectors,
             }
             np.save(f"{path}.meta.npy", metadata, allow_pickle=True)
         elif self._backend == "faiss":
@@ -260,6 +277,7 @@ class VectorIndex:
                     "employee_ids": self._employee_ids,
                     "embedding_dim": self.embedding_dim,
                     "space": self.space,
+                    "employee_vectors": self._employee_vectors,
                 },
                 allow_pickle=True,
             )
@@ -277,6 +295,7 @@ class VectorIndex:
                 self._index.load_index(f"{path}.hnsw")
                 metadata = np.load(f"{path}.meta.npy", allow_pickle=True).item()
                 self._employee_ids = metadata["employee_ids"]
+                self._employee_vectors = metadata.get("employee_vectors", {})
                 self._labels = list(range(len(self._employee_ids)))
             except Exception as e:
                 logger.error(f"Failed to load HNSW index: {e}")
@@ -288,6 +307,7 @@ class VectorIndex:
                 self._index = faiss.read_index(f"{path}.index")
                 metadata = np.load(f"{path}.meta.npy", allow_pickle=True).item()
                 self._employee_ids = metadata["employee_ids"]
+                self._employee_vectors = metadata.get("employee_vectors", {})
                 self._labels = list(range(len(self._employee_ids)))
             except Exception as e:
                 logger.error(f"Failed to load FAISS index: {e}")

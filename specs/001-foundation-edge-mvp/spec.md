@@ -57,7 +57,7 @@ As a system administrator, I want the kiosk to automatically upload all accumula
 - **FR-003**: System MUST extract a 512-dimension biometric embedding for each enrollment angle.
 - **FR-004**: System MUST index vectors using HNSW for $O(\log N)$ local search performance.
 - **FR-005**: System MUST use an encrypted SQLite database for all local persistence.
-- **FR-006**: System MUST implementation a Hardware Abstraction Layer (HAL) to support evaluation on a standard Laptop webcam.
+- **FR-006**: System MUST implement a Hardware Abstraction Layer (HAL) to support evaluation on a standard Laptop webcam.
 - **FR-007**: System MUST sync logs in sequential chunks (e.g., 500 logs per request) via HTTPS POST with SHA-256 integrity verification.
 - **FR-008**: System MUST identify the largest and most centered face in the frame as the Primary Face and focus all recognition logic solely on that target.
 - **FR-009**: System MUST log a "Capture Failure" event and direct the user to "Consult Management" if environmental conditions consistently prevent a valid biometric capture ($>3$ consecutive failed attempts).

@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 class NetworkMonitor:
     CHECK_INTERVAL = 10
-    RECOVERY确认_DELAY = 5
+    RECOVERY_CONFIRM_DELAY = 5
 
     def __init__(self, api_url: str = "https://api.attendance.local"):
         self.api_url = api_url
@@ -46,7 +46,7 @@ class NetworkMonitor:
 
             if (
                 not self._is_online
-                and self._recovery_delay_counter >= self.RECOVERY确认_DELAY
+                and self._recovery_delay_counter >= self.RECOVERY_CONFIRM_DELAY
             ):
                 self._is_online = True
                 self._notify_status_change(True)

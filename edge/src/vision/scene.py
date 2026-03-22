@@ -93,16 +93,6 @@ class PrimaryFaceSelector:
 class SceneAnalyzer:
     def __init__(self):
         self.face_selector = PrimaryFaceSelector()
-        self.face_detector = None
-        self._init_face_detector()
-
-    def _init_face_detector(self):
-        try:
-            from edge.src.biometrics.embeddings import FaceDetector
-
-            self.face_detector = FaceDetector()
-        except Exception as e:
-            logger.warning(f"FaceDetector unavailable: {e}")
 
     def analyze_frame(self, frame: np.ndarray) -> dict:
         result = {
@@ -180,5 +170,3 @@ class SceneAnalyzer:
     def close(self):
         if self.face_selector:
             self.face_selector.close()
-        if self.face_detector:
-            self.face_detector.close()

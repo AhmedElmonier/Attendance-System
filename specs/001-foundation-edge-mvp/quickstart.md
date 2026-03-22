@@ -13,7 +13,7 @@ pip install -r requirements.txt
 ### 2. Required Core Dependencies
 - `opencv-python`: For camera access and frame processing.
 - `mediapipe`: For Euler angle detection.
-- `sqlcipher-lib`: For encrypted local persistence.
+- `sqlcipher3`: For encrypted local persistence.
 - `hnswlib`: For sub-200ms vector matching.
 
 ### 3. Running the Foundation MVP (Simulation)

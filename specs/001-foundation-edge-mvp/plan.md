@@ -72,7 +72,7 @@ cloud/
 
 ## Phase 1: Design & Contracts
 - **Data Model**: Finalize SQLite schema for `AttendanceEvent` and `BiometricTemplate`.
-- **Contract**: Define the `POST /sync/attendance` JSON schema including integrity headers.
+- **Contract**: Define the `POST /api/v1/sync/attendance` JSON schema including integrity headers.
 
 ## Phase 2: Verification Plan
 - **Automated Tests**:

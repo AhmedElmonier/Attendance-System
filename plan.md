@@ -80,7 +80,7 @@ To build a resilient, high-accuracy attendance system tailored for the Egyptian 
 
 ### 4.3 Mobile Manager App
 - [ ] **Flutter Mobile**: Cross-platform app for real-time alerts and "Unverified" event overrides.
-- [ ] **Push Notifications**: FCM/APNS integration for critial alerts.
+- [ ] **Push Notifications**: FCM/APNS integration for critical alerts.
 
 ---
 
