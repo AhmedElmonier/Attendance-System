@@ -39,8 +39,8 @@ def _get_current_user_id(request: Request) -> UUID:
         raise HTTPException(status_code=401, detail="Missing user_id claim")
     try:
         return UUID(user_id_str)
-    except (ValueError, TypeError):
-        raise HTTPException(status_code=401, detail="Invalid user_id in token")
+    except (ValueError, TypeError) as err:
+        raise HTTPException(status_code=401, detail="Invalid user_id in token") from err
 
 
 def _get_tenant_id(request: Request) -> UUID:
@@ -49,8 +49,10 @@ def _get_tenant_id(request: Request) -> UUID:
         raise HTTPException(status_code=400, detail="Missing X-Tenant-ID header")
     try:
         return UUID(tenant_id_str)
-    except (ValueError, TypeError):
-        raise HTTPException(status_code=400, detail="Invalid X-Tenant-ID format")
+    except (ValueError, TypeError) as err:
+        raise HTTPException(
+            status_code=400, detail="Invalid X-Tenant-ID format"
+        ) from err
 
 
 class IpAllowlistSettings(BaseModel):
@@ -106,21 +108,23 @@ async def update_ip_allowlist(payload: IpAllowlistSettings, request: Request):
     tenant_id = _get_tenant_id(request)
     try:
         pool = await get_db()
-        await pool.execute(
-            "DELETE FROM ip_allowlist WHERE tenant_id = $1",
-            tenant_id,
-        )
-        if payload.allowed_cidrs:
-            await pool.executemany(
-                "INSERT INTO ip_allowlist (tenant_id, cidr_block) VALUES ($1, $2)",
-                [(tenant_id, cidr) for cidr in payload.allowed_cidrs],
-            )
-        await pool.execute(
-            "INSERT INTO tenant_settings (tenant_id, ip_filter_enabled) VALUES ($1, $2) "
-            "ON CONFLICT (tenant_id) DO UPDATE SET ip_filter_enabled = $2",
-            tenant_id,
-            payload.enabled,
-        )
+        async with pool.acquire() as conn:
+            async with conn.transaction():
+                await conn.execute(
+                    "DELETE FROM ip_allowlist WHERE tenant_id = $1",
+                    tenant_id,
+                )
+                if payload.allowed_cidrs:
+                    await conn.executemany(
+                        "INSERT INTO ip_allowlist (tenant_id, cidr_block) VALUES ($1, $2)",
+                        [(tenant_id, cidr) for cidr in payload.allowed_cidrs],
+                    )
+                await conn.execute(
+                    "INSERT INTO tenant_settings (tenant_id, ip_filter_enabled) VALUES ($1, $2) "
+                    "ON CONFLICT (tenant_id) DO UPDATE SET ip_filter_enabled = $2",
+                    tenant_id,
+                    payload.enabled,
+                )
         return {
             "enabled": payload.enabled,
             "allowed_cidrs": payload.allowed_cidrs,

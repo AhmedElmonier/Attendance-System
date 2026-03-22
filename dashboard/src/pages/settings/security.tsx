@@ -36,6 +36,7 @@ export default function SecuritySettings() {
   const [ipList, setIpList] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
@@ -54,9 +55,9 @@ export default function SecuritySettings() {
         setIpEnabled(data.enabled ?? false);
         setIpList((data.allowed_cidrs ?? []).join('\n'));
         setValidationError(null);
-        setSaveError(null);
+        setLoadError(null);
       } catch (err) {
-        setSaveError(err instanceof Error ? err.message : 'Failed to load settings');
+        setLoadError(err instanceof Error ? err.message : 'Failed to load settings');
       } finally {
         setIsLoadingSettings(false);
       }
@@ -146,6 +147,9 @@ export default function SecuritySettings() {
           {validationError && (
             <p className="text-xs text-red-600 mt-2">{validationError}</p>
           )}
+          {loadError && (
+            <p className="text-xs text-red-600 mt-2">{loadError}</p>
+          )}
           {saveError && (
             <p className="text-xs text-red-600 mt-2">{saveError}</p>
           )}
@@ -157,7 +161,7 @@ export default function SecuritySettings() {
           <div className="mt-6 flex justify-end">
             <button
               className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50"
-              disabled={!ipEnabled || validationError !== null || isSaving || isLoadingSettings}
+              disabled={!ipEnabled || validationError !== null || isSaving || isLoadingSettings || loadError !== null}
               onClick={handleSave}
             >
               {isSaving ? t('saving') : t('save')}

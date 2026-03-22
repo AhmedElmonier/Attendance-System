@@ -53,6 +53,7 @@ class EncryptedDB:
             self._conn.execute(f"PRAGMA key = x'{hex_key}'")
             self._conn.execute("PRAGMA cipher_page_size = 4096")
             self._conn.execute("PRAGMA foreign_keys = ON")
+            self._conn.execute("PRAGMA secure_delete = ON")
         return self._conn
 
     def _init_database(self) -> None:
@@ -250,6 +251,9 @@ class EncryptedDB:
             (key, value),
         )
         conn.commit()
+
+    def get_connection(self) -> "sqlcipher3.Connection":
+        return self._get_connection()
 
     def close(self) -> None:
         if self._conn:
