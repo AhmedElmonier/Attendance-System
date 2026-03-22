@@ -29,4 +29,6 @@
    ```sql
    ALTER TABLE approval_requests ENABLE ROW LEVEL SECURITY;
    CREATE POLICY tenant_isolation ON approval_requests USING (tenant_id = current_setting('app.current_tenant')::uuid);
+   ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+   CREATE POLICY tenant_isolation ON audit_logs USING (tenant_id = current_setting('app.current_tenant')::uuid);
    ```

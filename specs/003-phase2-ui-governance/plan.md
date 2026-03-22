@@ -1,6 +1,6 @@
 # Implementation Plan: Phase 2 - Bilingual UI/UX & Governance
 
-**Branch**: `003-phase2-ui-governance` | **Date**: 2026-03-22 | **Spec**: [spec.md](file:///d:/Projects/Attendance-System/specs/003-phase2-ui-governance/spec.md)
+**Branch**: `003-phase2-ui-governance` | **Date**: 2026-03-22 | **Spec**: [spec.md](./spec.md)
 **Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
 
 **Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/plan-template.md` for the execution workflow.
@@ -104,4 +104,4 @@ edge/
    - Action: Manually verify that the "Success" sound plays on a match and that "Guidance" triggers after 3 seconds of stagnation.
 2. **Side-by-Side Diff Review**:
    - Navigate to the Dashboard -> Approvals.
-   - Action: Confirm that two face images (Old/New) are displayed clearly for decision making.
+   -     Action: Confirm that two face images (Old/New) are displayed clearly for decision-making.

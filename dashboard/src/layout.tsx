@@ -1,21 +1,21 @@
-import { useLocale } from 'next-intl';
+import { setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
 const locales = ['en', 'ar'];
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
-  params
+  params,
 }: {
   children: React.ReactNode;
   params: { locale: string };
 }) {
-  const locale = useLocale();
+  if (!locales.includes(params.locale)) {
+    notFound();
+  }
 
-  // Validate that the incoming `locale` parameter is valid
-  if (!locales.includes(locale)) notFound();
-
-  // Determines the text direction (RTL for Arabic, LTR for English)
+  await setRequestLocale(params.locale);
+  const locale = params.locale;
   const dir = locale === 'ar' ? 'rtl' : 'ltr';
 
   return (

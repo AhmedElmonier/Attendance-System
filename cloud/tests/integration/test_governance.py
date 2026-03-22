@@ -2,29 +2,109 @@ import pytest
 from fastapi.testclient import TestClient
 from uuid import uuid4
 
-# Assuming the app is accessible here for tests
-from src.api.governance import router
+from src.api.governance import router, get_current_user_id
+from src.services.approval_service import ApprovalService
 from fastapi import FastAPI
 
 app = FastAPI()
 app.include_router(router)
 client = TestClient(app)
 
+
 def test_maker_checker_self_approval_blocked():
     req_id = uuid4()
-    
-    # In the actual API (using the mock db in governance.py), 
-    # the dummy maker_id is ...001 and checker_id is ...002
-    # So if we hit action_approval, it will pass because it's hardcoded to be different.
-    # To truly simulate self-approval block, we'd mock the ApprovalService.
-    # We will just assert that the 200 OK succeeds with the dummy setup (where they differ)
-    
-    response = client.post(
-        f"/api/v1/governance/approvals/{req_id}/action",
-        json={"action": "APPROVED", "reason": "Looks good"}
-    )
-    
-    # Our dummy setup in the endpoint intercepts it to succeed or fail based on MockDB logic if we injected it.
-    # The actual implementation we wrote throws a ValueError if self-approval.
-    assert response.status_code == 200
-    assert response.json()["status"] == "APPROVED"
+    maker_id = uuid4()
+
+    class FakeSession:
+        def __init__(self):
+            self._req = None
+
+        def add(self, obj):
+            pass
+
+        def query(self, model):
+            class q:
+                def filter(self, *args):
+                    return self
+
+                def first(self):
+                    return self._req
+
+            q._req = self._req
+            return q()
+
+        def commit(self):
+            pass
+
+        def refresh(self, obj):
+            pass
+
+    fake_session = FakeSession()
+    fake_session._req = type(
+        "obj",
+        (),
+        {
+            "id": req_id,
+            "maker_id": maker_id,
+            "entity_type": "EMPLOYEE",
+            "entity_id": uuid4(),
+            "change_payload": {},
+            "status": "PENDING",
+            "checker_id": None,
+            "reason": None,
+        },
+    )()
+
+    service = ApprovalService(fake_session)
+    with pytest.raises(ValueError, match="Self-approval is forbidden"):
+        service.review_request(req_id, maker_id, "APPROVED")
+
+
+def test_maker_checker_approval_succeeds_for_different_users():
+    req_id = uuid4()
+    maker_id = uuid4()
+    checker_id = uuid4()
+
+    class FakeSession:
+        def __init__(self):
+            self._req = None
+
+        def add(self, obj):
+            pass
+
+        def query(self, model):
+            class q:
+                def filter(self, *args):
+                    return self
+
+                def first(self):
+                    return self._req
+
+            q._req = self._req
+            return q()
+
+        def commit(self):
+            pass
+
+        def refresh(self, obj):
+            pass
+
+    fake_session = FakeSession()
+    fake_session._req = type(
+        "obj",
+        (),
+        {
+            "id": req_id,
+            "maker_id": maker_id,
+            "entity_type": "EMPLOYEE",
+            "entity_id": uuid4(),
+            "change_payload": {},
+            "status": "PENDING",
+            "checker_id": None,
+            "reason": None,
+        },
+    )()
+
+    service = ApprovalService(fake_session)
+    result = service.review_request(req_id, checker_id, "APPROVED")
+    assert result.status == "APPROVED"

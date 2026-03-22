@@ -1,4 +1,3 @@
-import base64
 import json
 import logging
 import os
@@ -119,13 +118,13 @@ async def readiness_check():
 
 
 def extract_tenant_from_auth(authorization: Optional[str]) -> str:
-    """Extract and validate tenant_id from Bearer token.
+    """Extract and validate tenant_id from Bearer JWT token.
 
     Args:
         authorization: Authorization header value (expected format: "Bearer <token>")
 
     Returns:
-        tenant_id string extracted from JWT-like token payload
+        tenant_id string extracted from JWT payload
 
     Raises:
         ValueError: If token is missing, malformed, or missing tenant_id
@@ -139,32 +138,33 @@ def extract_tenant_from_auth(authorization: Optional[str]) -> str:
         raise ValueError("Authorization must be Bearer token")
 
     token = authorization[7:]
+    jwt_secret = os.getenv("JWT_SECRET")
+
+    if not jwt_secret:
+        logger.error("JWT_SECRET environment variable not configured")
+        raise ValueError("Server misconfiguration: JWT_SECRET not set")
+
     try:
-        # Fix base64 padding if needed
-        missing_padding = len(token) % 4
-        if missing_padding:
-            token += '=' * (4 - missing_padding)
+        payload = jwt.decode(
+            token,
+            jwt_secret,
+            algorithms=["HS256"],
+            options={"require": ["tenant_id", "exp"]},
+        )
+    except jwt.ExpiredSignatureError as e:
+        logger.warning(f"Token expired: {e!s}")
+        raise ValueError(f"Token has expired: {e!s}") from e
+    except jwt.InvalidTokenError as e:
+        logger.warning(f"Invalid token: {e!s}")
+        raise ValueError(f"Invalid token: {e!s}") from e
 
-        payload_str = base64.b64decode(token).decode('utf-8')
-        payload = json.loads(payload_str)
-        tenant_id = payload.get("tenant_id")
+    tenant_id = payload.get("tenant_id")
+    if not tenant_id:
+        logger.warning("Token payload missing 'tenant_id' field")
+        raise ValueError("Token missing required tenant_id")
 
-        if not tenant_id:
-            logger.warning("Token valid but missing tenant_id field")
-            raise ValueError("Token missing required tenant_id")
-
-        logger.debug(f"Successfully extracted tenant_id: {tenant_id}")
-        return tenant_id
-
-    except base64.binascii.Error as e:
-        logger.warning(f"Base64 decode failed: {str(e)}")
-        raise ValueError(f"Invalid token encoding: {str(e)}")
-    except json.JSONDecodeError as e:
-        logger.warning(f"JSON parse failed: {str(e)}")
-        raise ValueError(f"Invalid token payload: {str(e)}")
-    except UnicodeDecodeError as e:
-        logger.warning(f"Token decode failed: {str(e)}")
-        raise ValueError(f"Invalid token: {str(e)}")
+    logger.debug(f"Successfully extracted tenant_id: {tenant_id}")
+    return tenant_id
 
 
 @app.post("/api/v1/sync/attendance", response_model=SyncResponse)
@@ -186,8 +186,8 @@ async def sync_attendance(
     try:
         tenant_id = extract_tenant_from_auth(authorization)
     except ValueError as e:
-        logger.warning(f"Authentication failed: {str(e)}")
-        raise HTTPException(status_code=401, detail=str(e))
+        logger.warning(f"Authentication failed: {e!s}")
+        raise HTTPException(status_code=401, detail=str(e)) from e
 
     logger.info(f"Authenticated tenant: {tenant_id}")
 

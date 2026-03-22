@@ -15,6 +15,45 @@
     "status": "Status",
     "actions": "Actions"
   },
+  "DiffViewer": {
+    "biometricUpdate": "Biometric Update: {entityName}",
+    "currentRecord": "Current Record",
+    "newSubmission": "New Submission",
+    "noImage": "No Image",
+    "securityNoticeLabel": "Security Notice",
+    "securityNotice": "Verify that the new submission matches the identity of the current record before approving."
+  },
+  "Approvals": {
+    "title": "Approvals Inbox",
+    "update": "UPDATE",
+    "requestedBy": "Requested by",
+    "reject": "Reject",
+    "approveChange": "Approve Change",
+    "noRequests": "No {status} requests found."
+  },
+  "Audit": {
+    "title": "Audit Trail",
+    "description": "Immutable system history and governance logs.",
+    "searchPlaceholder": "Search by actor or action...",
+    "exportCsv": "Export CSV",
+    "colTimestamp": "Timestamp",
+    "colActor": "Actor",
+    "colAction": "Action",
+    "colEntity": "Entity",
+    "colIpAddress": "IP Address",
+    "noLogs": "No logs match your search criteria."
+  },
+  "Security": {
+    "title": "Security Configuration",
+    "ipAllowlistTitle": "Administrative IP Allow-listing",
+    "ipAllowlistDescription": "Restrict dashboard access for Managers and Admins to specific networks.",
+    "cidrLabel": "Allowed CIDR Blocks (One per line)",
+    "cidrHint": "Example: 192.168.1.0/24 (Allows 192.168.1.0 to 192.168.1.255)",
+    "invalidCidr": "Invalid CIDR entries: {entries}",
+    "save": "Save Allow-list",
+    "enabled": "Enabled",
+    "disabled": "Disabled"
+  },
   "Tooltips": {
     "ip_info": "Enter one IP range per line using CIDR notation.",
     "approval_diff": "Review the reference photo before approving biometric updates.",

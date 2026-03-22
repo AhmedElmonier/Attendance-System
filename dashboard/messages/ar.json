@@ -15,6 +15,45 @@
     "status": "الحالة",
     "actions": "إجراءات"
   },
+  "DiffViewer": {
+    "biometricUpdate": "تحديث بيومتري: {entityName}",
+    "currentRecord": "السجل الحالي",
+    "newSubmission": "التقديم الجديد",
+    "noImage": "لا توجد صورة",
+    "securityNoticeLabel": "إشعار أمني",
+    "securityNotice": "تحقق من أن التقديم الجديد يتطابق مع هوية السجل الحالي قبل الموافقة."
+  },
+  "Approvals": {
+    "title": "صندوق الموافقات",
+    "update": "تحديث",
+    "requestedBy": "مطلوب من",
+    "reject": "رفض",
+    "approveChange": "موافقة على التغيير",
+    "noRequests": "لا توجد طلبات {status}."
+  },
+  "Audit": {
+    "title": "سجل التدقيق",
+    "description": "سجل تاريخ النظام غير القابل للتغيير وسجلات الحوكمة.",
+    "searchPlaceholder": "البحث حسب الممثل أو الإجراء...",
+    "exportCsv": "تصدير CSV",
+    "colTimestamp": "الطابع الزمني",
+    "colActor": "الممثل",
+    "colAction": "الإجراء",
+    "colEntity": "الكيان",
+    "colIpAddress": "عنوان IP",
+    "noLogs": "لا توجد سجلات تطابق معايير البحث."
+  },
+  "Security": {
+    "title": "إعدادات الأمان",
+    "ipAllowlistTitle": "القائمة المسموح بها لـ IP الإداري",
+    "ipAllowlistDescription": "تقييد الوصول للوحة القيادة للمديرين والإداريين إلى شبكات محددة.",
+    "cidrLabel": "كتل CIDR المسموح بها (واحد في كل سطر)",
+    "cidrHint": "مثال: 192.168.1.0/24 (يسمح من 192.168.1.0 إلى 192.168.1.255)",
+    "invalidCidr": "إدخالات CIDR غير صالحة: {entries}",
+    "save": "حفظ القائمة المسموح بها",
+    "enabled": "مُفعّل",
+    "disabled": "معطّل"
+  },
   "Tooltips": {
     "ip_info": "أدخل نطاق IP واحد في كل سطر باستخدام تنسيق CIDR.",
     "approval_diff": "راجع الصورة المرجعية قبل الموافقة على التحديثات الحيوية.",

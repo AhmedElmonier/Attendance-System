@@ -9,10 +9,10 @@
 
 ### Session 2026-03-22
 - Q: Can a user who holds both Manager and Admin roles approve their own submitted requests (Self-Approval)? → A: Restricted (Strict) - Self-approval is never allowed; a different Admin must always perform the check.
-- Q: How should a kiosk behave if an employee's biometric template has been updated in the Cloud, but the device hasn't finished download it? → A: Hybrid - Allow matching against the old local template with a high-confidence threshold (>=98%); flag event as "Stale Template" in logs.
-- Q: Should the audio system provide active guidance during the facial capture process or only signal the final outcome? → A: Smart Guidance - Audio prompts for guidance trigger only if the user is in the frame for >3 seconds without a successful capture.
+- Q: How should a kiosk behave if an employee's biometric template has been updated in the Cloud, but the device hasn't finished download it? → A: Template Versioning — Edge devices MUST enforce template versioning and revocation. During the sync window, the kiosk MUST either (a) block biometric auth and fall back to PIN/badge, or (b) validate a cloud-delivered revocation list before accepting any template. The ">98% threshold" clause is removed; revoked/updated templates MUST NOT be used for authentication.
+- Q: Should the audio system provide active guidance during the facial capture process or only signal the outcome? → A: Smart Guidance - Audio prompts for guidance trigger only if the user is in the frame for >3 seconds without a successful capture.
 - Q: What level of detail should the "Diff View" provide for biometric template updates in the Approvals Inbox? → A: Visual - Display side-by-side reference photos (old vs new) for Admin verification.
-- Q: Should the system restrict administrative dashboard access to specific IP ranges (allow-listing)? → A: Allow-listing (Optional) - Support optional, organization-configurable IP allow-listing for Admin accounts.
+- Q: Should the system restrict administrative dashboard access to specific IP ranges (allow-listing)? → A: Mandatory — System MUST enforce IP allow-listing for all Admin/Manager accounts; organizations configure the allowed IP ranges but the feature cannot be disabled.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -80,7 +80,7 @@ As a Compliance Officer, I want to see a detailed history of all administrative 
 
 ### Edge Cases
 
-- **Partial Sync during Approvals**: What happens if a "Pending Approval" change is made while the kiosk is offline? (Resolved: Approval logic lives in the Cloud; edge kiosks only pull "Approved" states during their heartbeat. If a local template is marked for update but the new one isn't downloaded, the system uses "Hybrid Matching" logic).
+- **Partial Sync during Approvals**: What happens if a "Pending Approval" change is made while the kiosk is offline? (Resolved: Approval logic lives in the Cloud; edge kiosks only pull "Approved" states during their heartbeat. If a local template is marked for update but the new one isn't downloaded, the kiosk uses Template Versioning: biometric auth is blocked until the new template is downloaded and applied; PIN/badge fallback is used during the sync window.)
 - **Simultaneous Edits**: Two managers edit the same employee. (Resolved: The "Maker" request captures the original hash; if the hash changed before approval, the request is invalidated).
 - **Missing Audio Assets**: Kiosk cannot find an audio file. (Resolved: System falls back to visual-only feedback and logs a local warning).
 
@@ -93,12 +93,12 @@ As a Compliance Officer, I want to see a detailed history of all administrative 
 - **FR-003**: System MUST provide a "Maker-Checker" state machine for sensitive edits (Biometrics, Termination, Site Transfers).
 - **FR-004**: The system MUST strictly prohibit "Self-Approval"; any administrative change must be approved by a different user than the one who initiated it.
 - **FR-005**: Edge devices MUST pull a "Verified State" from the Cloud and only apply changes that have been "Approved".
-- **FR-006**: During template transitions (Cloud approved, Edge not yet downloaded), the Edge device MUST use a high-confidence threshold (>=98%) for the old template; events matching with <98% must be rejected as "Update Required".
+- **FR-006**: Edge devices MUST enforce biometric template versioning. During template transitions (Cloud approved, Edge not yet downloaded), the kiosk MUST block biometric auth and fall back to PIN/badge authentication. Template revocation MUST be enforced via a cloud-delivered revocation list; stale/old templates MUST NOT be used for biometric authentication.
 - **FR-007**: Kiosk MUST support localized audio output (pre-recorded wav/mp3) for successful/failed attendance events.
 - **FR-008**: Audio guidance prompts MUST only trigger if a user remains in the camera frame for >3 seconds without a successful capture (Smart Guidance).
 - **FR-009**: The "Approvals Inbox" MUST provide a side-by-side visual comparison (using reference photos) for all biometric template updates.
 - **FR-010**: System MUST maintain an immutable Audit Log of all dashboard and API interactions.
-- **FR-011**: System MUST support optional IP allow-listing per organization for all administrative (Admin/Manager) accounts.
+- **FR-011**: System MUST enforce IP allow-listing for all administrative (Admin/Manager) accounts; allowed IP ranges are configurable per organization but the feature is mandatory and cannot be disabled.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -114,7 +114,7 @@ As a Compliance Officer, I want to see a detailed history of all administrative 
 - **SC-002**: Audit logs MUST be searchable and exportable within < 1 second for a 30-day window.
 - **SC-003**: UI components MUST have zero layout breaks when toggled from LTR to RTL.
 - **SC-004**: Attendance feedback (visual/audio) MUST trigger within < 100ms of recognition on the edge device.
-- **SC-005**: 100% of administrative login attempts from non-allowlisted IPs MUST be rejected with a 403 Forbidden error if the feature is enabled.
+- **SC-005**: 100% of administrative login attempts from non-allowlisted IPs MUST be rejected with a 403 Forbidden error.
 
 ## Assumptions & Dependencies
 
