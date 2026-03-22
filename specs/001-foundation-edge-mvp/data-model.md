@@ -3,6 +3,7 @@
 ## Edge Persistence (SQLite)
 
 ### Table: `employees`
+
 | Field | Type | Constraints | Description |
 |-------|------|-------------|-------------|
 | `id` | UUID | Primary Key | Global Employee ID |
@@ -11,6 +12,7 @@
 | `status` | TEXT | Default 'active' | active, suspended |
 
 ### Table: `biometric_templates`
+
 | Field | Type | Constraints | Description |
 |-------|------|-------------|-------------|
 | `id` | INTEGER | Primary Key | Local HNSW Label |
@@ -19,6 +21,7 @@
 | `pose` | TEXT | Not Null | center, left, right, up, down |
 
 ### Table: `attendance_logs`
+
 | Field | Type | Constraints | Description |
 |-------|------|-------------|-------------|
 | `id` | UUID | Primary Key | Event ID |
@@ -34,6 +37,7 @@
 The cloud schema mirrors the edge tables but adds multi-tenant scoping and integrity headers.
 
 ### Table: `attendance_events` (Scoped)
+
 - `id`: UUID (Primary Key)
 - `tenant_id`: UUID (RLS partitioned)
 - `employee_id`: UUID
