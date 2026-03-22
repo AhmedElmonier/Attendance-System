@@ -4,6 +4,8 @@ from uuid import UUID
 from starlette.requests import Request
 import logging
 
+from src.db.connection import Database
+
 logger = logging.getLogger(__name__)
 
 
@@ -49,24 +51,22 @@ def audit_log(action: str, entity_type: str):
             if req.client is not None:
                 client_ip = req.client.host
 
-            from src.models.governance import AuditLog
-
-            audit_entry = AuditLog(
-                tenant_id=tenant_id,
-                actor_id=actor_id,
-                action=action,
-                entity_type=entity_type,
-                ip_address=client_ip,
-            )
-
             try:
-                db = getattr(req.state, "db", None)
-                if db is not None:
-                    db.add(audit_entry)
-                    db.commit()
+                pool = Database.get_pool()
+                if pool is not None:
+                    await pool.execute(
+                        "INSERT INTO audit_logs "
+                        "(tenant_id, actor_id, action, entity_type, ip_address) "
+                        "VALUES ($1, $2, $3, $4, $5)",
+                        tenant_id,
+                        actor_id,
+                        action,
+                        entity_type,
+                        client_ip,
+                    )
                 else:
                     logger.warning(
-                        f"Audit entry not persisted (no DB session): "
+                        f"Audit entry not persisted (no DB pool): "
                         f"{actor_id} performed {action} on {entity_type}"
                     )
             except Exception:

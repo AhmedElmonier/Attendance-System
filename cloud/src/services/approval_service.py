@@ -78,7 +78,6 @@ class ApprovalService:
         if action not in ["APPROVED", "REJECTED"]:
             raise ValueError("Invalid action. Must be APPROVED or REJECTED")
 
-        request.status = action
         request.checker_id = checker_id
         request.reason = reason
 
@@ -90,6 +89,8 @@ class ApprovalService:
             except NotImplementedError as e:
                 self.db.rollback()
                 raise ValueError(str(e)) from e
+
+        request.status = action
 
         try:
             self.db.commit()
