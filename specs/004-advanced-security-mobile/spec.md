@@ -98,7 +98,7 @@ As a System Auditor, I want the system to perform automated, encrypted backups o
 ### Key Entities *(include if feature involves data)*
 
 - **WipeCommand**: Represents a signed administrative instruction (command_id, timestamp, signature, target_id).
-- **MobileDevice**: Represents a registered mobile instance for push notifications (device_token, user_id, OS_type).
+- **MobileDevice**: Represents a registered mobile instance for push notifications (fcm_token, user_id, OS_type).
 - **EncryptedBackup**: Metadata for a backup artifact (storage_path, checksum, encryption_version).
 
 ## Success Criteria *(mandatory)*

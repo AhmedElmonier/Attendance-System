@@ -9,7 +9,7 @@ Implement high-security administrative controls and a mobile management suite. K
 ## Technical Context
 
 **Language/Version**: Python 3.11 (Edge/Cloud), Dart/Flutter 3.x (Mobile)
-**Primary Dependencies**: `FastAPI`, `SQLAlchemy`, `sqlcipher3`, `hnswlib`, `mediapipe`, `pynacl` (Ed25519), `firebase_messaging` (FCM)
+**Primary Dependencies**: `FastAPI`, `SQLAlchemy`, `sqlcipher3`, `hnswlib`, `mediapipe`, `pynacl` (Ed25519), `argon2-cffi`, `firebase_messaging` (FCM)
 **Storage**: PostgreSQL (Cloud), SQLite/SQLCipher (Edge), Cloud Object Storage (Backups)
 **Testing**: `pytest` (Backend/Edge), `flutter test` (Mobile)
 **Target Platform**: Linux (Edge/Cloud), Android/iOS (Mobile)
@@ -80,4 +80,4 @@ mobile/                         # [NEW] Flutter Project
 ### Manual Verification
 1. **End-to-End Wipe**: Issue a Wipe command from the admin dashboard (mocked) and verify the `.db` and `.hnsw` files on the edge are deleted.
 2. **Push Notification Loop**: Trigger a low-confidence match on a dev-mode kiosk and verify a notification appears on the Flutter Emulator.
-3. **Mask Recognition**: Perform a match wearing a medical mask and verify the logs show "Periocular Fallback" trigger.
+3. **Mask Recognition**: Perform a match wearing a medical mask and verify the logs show "Periocular Fallback" trigger. Verify SC-004 backup decryption performance.

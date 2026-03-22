@@ -6,9 +6,6 @@ logger = logging.getLogger(__name__)
 
 
 class OverrideService:
-    def __init__(self, db_session):
-        self.db = db_session
-
     def process_override(
         self,
         event_id: str,
@@ -16,6 +13,8 @@ class OverrideService:
         manager_id: UUID,
         reason: Optional[str] = None,
     ) -> dict:
+        if action not in ("approve", "reject"):
+            raise ValueError(f"Invalid action: {action}")
         if action == "approve" and not reason:
             raise ValueError("A reason is required for approval overrides")
 

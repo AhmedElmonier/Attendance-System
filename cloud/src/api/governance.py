@@ -179,6 +179,8 @@ async def action_approval(
             payload.reason,
             approval_id,
         )
+        if updated is None:
+            raise HTTPException(status_code=404, detail="Approval request not found")
         return {
             "id": updated["id"],
             "entity_type": updated["entity_type"],

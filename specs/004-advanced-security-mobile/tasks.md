@@ -7,7 +7,8 @@
 **Purpose**: Project initialization and basic structure
 
 - [X] T001 Create project structure for new security modules in `cloud/`, `edge/`, and `mobile/`
-- [X] T002 Initialize Flutter project in `mobile/` with `firebase_messaging` and `riverpod`
+- [X] T002 Initialize Flutter project in `mobile/` with `firebase_messaging`, `firebase_crashlytics`, and `riverpod`
+- [ ] T002.1 Configure `firebase_crashlytics` for crash-free session tracking (SC-005)
 - [X] T003 [P] Generate Ed25519 master keys for remote command signing
 
 ---
@@ -44,7 +45,7 @@
 
 **Independent Test**: Mock a 0.65 confidence match; verify push arrives on mobile and "Approve" (with reason) updates record to "Present (Manual Override)".
 
-- [X] T013 [P] [US2] Implement Mobile Device registration endpoint in `cloud/src/api/mobile_mgmt.py`
+- [X] T013 [P] [US2] Implement Mobile Device registration endpoint (`fcm_token`) in `cloud/src/api/mobile_mgmt.py`
 - [X] T014 [US2] Implement Unverified Alerts feed endpoint in `cloud/src/api/mobile_mgmt.py`
 - [X] T015 [US2] Implement Override processing logic with mandatory reason validation in `cloud/src/services/override.py`
 - [X] T016 [P] [US2] Setup FCM background service in `mobile/lib/services/fcm_service.dart`
@@ -80,7 +81,7 @@
 - [X] T026 Implement multi-failure 60s lockout logic in `edge/src/biometrics/matcher.py`
 - [X] T027 Add ID-entry fallback UI for kiosks in `edge/src/hal/display.py`
 - [X] T028 Update `quickstart.md` with mobile app setup instructions
-- [X] T029 Perform final end-to-end integration test of all Phase 3 features
+- [X] T029 Perform final end-to-end integration test of all Phase 3 features (including SC-004: <60s 1GB backup decryption)
 
 ---
 

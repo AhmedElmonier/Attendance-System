@@ -4,8 +4,8 @@ This guide covers setup for the **Advanced Security & Mobile** features.
 
 ## 1. Cloud Backend Setup
 Ensure the following environment variables are set in `cloud/.env`:
-- `ED25519_PRIVATE_KEY`: Base64 encoded private key for signing remote wipes.
-- `ED25519_PUBLIC_KEY`: Base64 encoded public key for wipe verification on edge.
+- `ED25519_PRIVATE_KEY`: hex-encoded private key for signing remote wipes.
+- `ED25519_PUBLIC_KEY`: hex-encoded public key for wipe verification on edge.
 - `MASTER_BACKUP_KEY`: 32-byte hex string for AES-256-GCM.
 - `FCM_SERVER_KEY`: Firebase Cloud Messaging server key.
 

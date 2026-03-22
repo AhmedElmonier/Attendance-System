@@ -3,7 +3,6 @@ import json
 import uuid
 import logging
 from datetime import datetime, timezone
-from typing import Optional, List
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
@@ -27,6 +26,19 @@ class WipeResponse(BaseModel):
     signed_payload: str
 
 
+def _get_admin_id(request: Request) -> uuid.UUID:
+    user_id = getattr(request.state, "user_id", None)
+    if user_id:
+        return user_id
+    auth = request.headers.get("X-User-ID", "")
+    if auth:
+        try:
+            return uuid.UUID(auth)
+        except ValueError:
+            pass
+    raise HTTPException(status_code=401, detail="Missing authenticated user ID")
+
+
 @router.post("/actions/wipe", response_model=WipeResponse)
 async def trigger_remote_wipe(request: Request):
     private_key = os.getenv("ED25519_PRIVATE_KEY")
@@ -35,6 +47,7 @@ async def trigger_remote_wipe(request: Request):
             status_code=500, detail="ED25519_PRIVATE_KEY not configured"
         )
 
+    admin_id = _get_admin_id(request)
     body = await request.json()
     payload = WipeRequest(**body)
 
@@ -43,7 +56,7 @@ async def trigger_remote_wipe(request: Request):
     nonce = uuid.uuid4().hex
 
     signer = WipeCommandSigner(private_key)
-    signature = signer.sign_wipe_command(payload.kiosk_id, timestamp, nonce)
+    signature = signer.sign_wipe_command(action_id, payload.kiosk_id, timestamp, nonce)
 
     signed_payload = json.dumps(
         {
@@ -57,23 +70,23 @@ async def trigger_remote_wipe(request: Request):
         sort_keys=True,
     )
 
-    try:
-        pool = await get_db()
-        await pool.execute(
-            "INSERT INTO remote_actions "
-            "(id, kiosk_id, action_type, signed_payload, issued_by, status) "
-            "VALUES ($1, $2, $3, $4, $5, $6)",
-            uuid.UUID(action_id),
-            payload.kiosk_id,
-            "WIPE_FULL",
-            signed_payload,
-            uuid.uuid4(),
-            "PENDING",
-        )
-    except Exception:
-        logger.exception("Failed to persist wipe action")
+    pool = await get_db()
+    await pool.execute(
+        "INSERT INTO remote_actions "
+        "(id, kiosk_id, action_type, signed_payload, issued_by, status) "
+        "VALUES ($1, $2, $3, $4, $5, $6)",
+        uuid.UUID(action_id),
+        payload.kiosk_id,
+        "WIPE_FULL",
+        signed_payload,
+        admin_id,
+        "PENDING",
+    )
 
-    logger.info(f"Wipe action {action_id} created for kiosk {payload.kiosk_id}")
+    logger.info(
+        f"Wipe action {action_id} created for kiosk {payload.kiosk_id} "
+        f"by admin {admin_id}"
+    )
 
     return WipeResponse(
         action_id=action_id,

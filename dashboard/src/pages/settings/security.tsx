@@ -161,7 +161,7 @@ export default function SecuritySettings() {
           <div className="mt-6 flex justify-end">
             <button
               className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50"
-              disabled={!ipEnabled || validationError !== null || isSaving || isLoadingSettings}
+              disabled={!ipEnabled || validationError !== null || isSaving || isLoadingSettings || loadError !== null}
               onClick={handleSave}
             >
               {isSaving ? t('saving') : t('save')}

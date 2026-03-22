@@ -252,6 +252,9 @@ class EncryptedDB:
         )
         conn.commit()
 
+    def get_connection(self) -> "sqlcipher3.Connection":
+        return self._get_connection()
+
     def close(self) -> None:
         if self._conn:
             self._conn.close()

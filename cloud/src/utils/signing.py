@@ -1,7 +1,7 @@
 import base64
 import json
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 import nacl.signing
 import nacl.encoding
@@ -13,9 +13,12 @@ class WipeCommandSigner:
     def __init__(self, private_key_hex: str):
         self._signing_key = nacl.signing.SigningKey(bytes.fromhex(private_key_hex))
 
-    def sign_wipe_command(self, kiosk_id: str, timestamp: str, nonce: str) -> str:
+    def sign_wipe_command(
+        self, action_id: str, kiosk_id: str, timestamp: str, nonce: str
+    ) -> str:
         payload = json.dumps(
             {
+                "action_id": action_id,
                 "action": "WIPE_FULL",
                 "kiosk_id": kiosk_id,
                 "timestamp": timestamp,
@@ -34,13 +37,11 @@ class WipeCommandSigner:
 
 class WipeCommandVerifier:
     def __init__(self, public_key_hex: str):
-        self._verify_key = nacl.signing.VerifyKey(
-            bytes.fromhex(public_key_hex),
-            encoder=nacl.encoding.HexEncoder,
-        )
+        self._verify_key = nacl.signing.VerifyKey(bytes.fromhex(public_key_hex))
 
     def verify_wipe_command(
         self,
+        action_id: str,
         kiosk_id: str,
         timestamp: str,
         nonce: str,
@@ -48,6 +49,7 @@ class WipeCommandVerifier:
     ) -> bool:
         payload = json.dumps(
             {
+                "action_id": action_id,
                 "action": "WIPE_FULL",
                 "kiosk_id": kiosk_id,
                 "timestamp": timestamp,
@@ -55,10 +57,10 @@ class WipeCommandVerifier:
             },
             sort_keys=True,
         )
-        signature = base64.b64decode(signature_b64)
         try:
+            signature = base64.b64decode(signature_b64)
             self._verify_key.verify(payload.encode("utf-8"), signature)
             return True
-        except nacl.exceptions.BadSignatureError:
-            logger.warning(f"Bad wipe signature for kiosk {kiosk_id}")
+        except (nacl.exceptions.BadSignatureError, Exception) as e:
+            logger.warning(f"Wipe verification failed for kiosk {kiosk_id}: {e}")
             return False
