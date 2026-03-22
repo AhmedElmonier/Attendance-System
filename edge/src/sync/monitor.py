@@ -1,3 +1,4 @@
+import json
 import requests
 import time
 from typing import Optional, List, Callable
@@ -148,9 +149,11 @@ class SyncTrigger:
             )
 
             if response.status_code == 200:
-                return response.json()
-            else:
-                return {"status": "error", "error": f"HTTP {response.status_code}"}
+                try:
+                    return response.json()
+                except (ValueError, json.JSONDecodeError) as e:
+                    logger.error(f"Failed to parse sync response as JSON: {e}")
+                    return {"status": "error", "error": "Invalid JSON response"}
 
         except requests.exceptions.RequestException as e:
             logger.error(f"Sync request failed: {e}")

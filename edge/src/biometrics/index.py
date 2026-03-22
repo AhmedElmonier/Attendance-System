@@ -163,11 +163,10 @@ class VectorIndex:
             results = []
             for dist, idx in zip(distances[0], indices[0]):
                 if idx >= 0 and idx < len(self._employee_ids):
-                    similarity = (
-                        float(dist)
-                        if self.space == "ip"
-                        else (1.0 / (1.0 + float(dist)))
-                    )
+                    if self.space in ("ip", "cosine"):
+                        similarity = float(dist)
+                    else:
+                        similarity = 1.0 / (1.0 + float(dist))
                     results.append((self._employee_ids[idx], similarity, int(idx)))
             return results
 
@@ -212,6 +211,8 @@ class VectorIndex:
 
     def _rebuild_hnsw_index(self):
         self._init_hnsw_index()
+        self._labels = []
+        self._employee_ids = []
         for emp_id, vector in self._employee_vectors.items():
             self._add_to_hnsw(emp_id, vector)
 
