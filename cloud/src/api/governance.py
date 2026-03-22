@@ -172,13 +172,18 @@ async def action_approval(
         updated = await pool.fetchrow(
             "UPDATE approval_requests "
             "SET status = $1, checker_id = $2, reason = $3 "
-            "WHERE id = $4 "
+            "WHERE id = $4 AND status = 'PENDING' "
             "RETURNING id, entity_type, status, maker_id, checker_id",
             payload.action,
             checker_id,
             payload.reason,
             approval_id,
         )
+        if updated is None:
+            raise HTTPException(
+                status_code=409,
+                detail="Approval request not found or already processed",
+            )
         if updated is None:
             raise HTTPException(status_code=404, detail="Approval request not found")
         return {

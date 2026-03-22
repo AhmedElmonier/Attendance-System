@@ -1,5 +1,3 @@
-import hashlib
-import hmac
 import logging
 import os
 import shutil
@@ -15,7 +13,10 @@ class BackupEngine:
     def __init__(self, db_url: str, storage_path: str, master_key: str):
         self.db_url = db_url
         self.storage_path = Path(storage_path)
-        key_bytes = bytes.fromhex(master_key)
+        try:
+            key_bytes = bytes.fromhex(master_key)
+        except ValueError as e:
+            raise ValueError(f"MASTER_BACKUP_KEY is not valid hex: {e}") from e
         if len(key_bytes) != 32:
             raise ValueError(
                 f"MASTER_BACKUP_KEY must be exactly 32 bytes, got {len(key_bytes)}"
@@ -35,8 +36,7 @@ class BackupEngine:
 
         try:
             result = subprocess.run(
-                [pg_dump, "--no-owner", "--no-privileges"],
-                env={**os.environ, "DATABASE_URL": self.db_url},
+                [pg_dump, "-d", self.db_url, "--no-owner", "--no-privileges"],
                 capture_output=True,
                 check=True,
                 timeout=120,

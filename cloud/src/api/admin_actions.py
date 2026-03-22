@@ -28,19 +28,18 @@ class WipeResponse(BaseModel):
 
 def _get_admin_id(request: Request) -> uuid.UUID:
     user_id = getattr(request.state, "user_id", None)
-    if user_id:
-        return user_id
-    auth = request.headers.get("X-User-ID", "")
-    if auth:
-        try:
-            return uuid.UUID(auth)
-        except ValueError:
-            pass
-    raise HTTPException(status_code=401, detail="Missing authenticated user ID")
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="Missing authenticated user ID")
+    try:
+        return uuid.UUID(str(user_id))
+    except (ValueError, TypeError) as e:
+        raise HTTPException(
+            status_code=401, detail="Invalid authenticated user ID"
+        ) from e
 
 
 @router.post("/actions/wipe", response_model=WipeResponse)
-async def trigger_remote_wipe(request: Request):
+async def trigger_remote_wipe(request: Request, payload: WipeRequest):
     private_key = os.getenv("ED25519_PRIVATE_KEY")
     if not private_key:
         raise HTTPException(
@@ -48,8 +47,6 @@ async def trigger_remote_wipe(request: Request):
         )
 
     admin_id = _get_admin_id(request)
-    body = await request.json()
-    payload = WipeRequest(**body)
 
     action_id = str(uuid.uuid4())
     timestamp = datetime.now(timezone.utc).isoformat()

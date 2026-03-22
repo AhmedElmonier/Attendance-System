@@ -44,6 +44,9 @@ class SecureWipeExecutor:
         if not signature:
             return {"status": "FAILED", "reason": "Missing signature"}
 
+        if payload.get("action") != "WIPE_FULL":
+            return {"status": "FAILED", "reason": "Invalid action"}
+
         if payload.get("kiosk_id") != self.kiosk_id:
             logger.warning(
                 f"Wipe rejected: kiosk mismatch "
@@ -89,6 +92,10 @@ class SecureWipeExecutor:
             cursor = conn.execute("SELECT COUNT(*) FROM attendance_logs")
             log_count = cursor.fetchone()[0]
 
+            if self.index_path and os.path.exists(self.index_path):
+                os.remove(self.index_path)
+                logger.info(f"HNSW index cleared: {self.index_path}")
+
             conn.execute("DELETE FROM biometric_templates")
             conn.execute("DELETE FROM attendance_logs")
             conn.execute(
@@ -98,10 +105,6 @@ class SecureWipeExecutor:
 
             conn.execute("VACUUM")
             conn.commit()
-
-            if self.index_path and os.path.exists(self.index_path):
-                os.remove(self.index_path)
-                logger.info(f"HNSW index cleared: {self.index_path}")
 
             logger.warning(
                 f"Wipe complete: {template_count} templates, {log_count} logs cleared"

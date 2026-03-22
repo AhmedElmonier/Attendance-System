@@ -3,7 +3,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional, List
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Query
 from pydantic import BaseModel, field_validator, model_validator
 
 from src.db.connection import get_db
@@ -95,7 +95,9 @@ async def register_device(request: Request, payload: DeviceRegistration):
 
 @router.get("/alerts", response_model=List[AlertItem])
 async def get_unverified_alerts(
-    request: Request, site_id: Optional[str] = None, limit: int = 50
+    request: Request,
+    site_id: Optional[uuid.UUID] = Query(None),
+    limit: int = 50,
 ):
     try:
         pool = await get_db()
@@ -110,7 +112,7 @@ async def get_unverified_alerts(
         params: list = [limit]
         if site_id:
             query += " AND al.site_id = $2"
-            params = [limit, uuid.UUID(site_id)]
+            params = [limit, site_id]
         query += " ORDER BY al.timestamp DESC LIMIT $1"
         rows = await pool.fetch(query, *params)
         return [
@@ -129,10 +131,10 @@ async def get_unverified_alerts(
 
 
 @router.post("/override")
-async def process_override(payload: OverrideRequest):
+async def process_override(request: Request, payload: OverrideRequest):
+    _, manager_id = _get_caller_ids(request)
     try:
         pool = await get_db()
-        reviewed_by = uuid.uuid4()
         new_status = (
             "Present (Manual Override)" if payload.action == "approve" else "Rejected"
         )
@@ -146,7 +148,7 @@ async def process_override(payload: OverrideRequest):
             "WHERE id = $4 AND requires_review = true "
             "RETURNING id",
             new_status,
-            reviewed_by,
+            manager_id,
             payload.reason,
             uuid.UUID(payload.event_id),
         )
