@@ -1,0 +1,15 @@
+hal:
+  input: "webcam"
+  io: "simulated"
+
+sync:
+  batch_size: 500
+  interval_seconds: 60
+
+security:
+  encryption_key_env: "ATTENDANCE_DB_KEY"
+
+cloud:
+  api_url: "https://api.attendance.local/api/v1"
+  mqtt_broker: "mqtt.attendance.local"
+  mqtt_port: 8883
