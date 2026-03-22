@@ -100,6 +100,8 @@ class EnrollmentWizard:
         detected_pose = self.pose_detector.detect_pose(frame)
 
         if detected_pose is None:
+            self.hold_frames = 0
+            self.capture_delay = 0
             output = self._add_status_overlay(frame, "No face detected", (0, 0, 255))
             return current_pose, output
 

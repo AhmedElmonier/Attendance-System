@@ -52,6 +52,7 @@ class EncryptedDB:
             hex_key = self.key.encode("utf-8").hex()
             self._conn.execute(f"PRAGMA key = x'{hex_key}'")
             self._conn.execute("PRAGMA cipher_page_size = 4096")
+            self._conn.execute("PRAGMA foreign_keys = ON")
         return self._conn
 
     def _init_database(self) -> None:

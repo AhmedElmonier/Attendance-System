@@ -38,6 +38,9 @@ class AttendanceSystem:
                 return yaml.safe_load(f)
         return {}
 
+    def _get_model_path(self) -> str:
+        return self.config.get("model", {}).get("embedding_path", "")
+
     def _init_database(self) -> EncryptedDB:
         db_key = os.environ.get("ATTENDANCE_DB_KEY")
         if not db_key:
@@ -74,14 +77,12 @@ class AttendanceSystem:
         if not name_ar:
             name_ar = input("Enter employee name (Arabic): ")
 
-        employee = self.db.add_employee(name_ar=name_ar, name_en=name_en)
-        logger.info(f"Created employee record: {employee.id}")
-
         pose_detector = PoseDetector()
         wizard = EnrollmentWizard(pose_detector)
 
         if not self.camera.start():
             logger.error("Failed to start camera")
+            pose_detector.close()
             return False
 
         try:
@@ -110,22 +111,28 @@ class AttendanceSystem:
             logger.warning("Enrollment incomplete")
             return False
 
+        employee = self.db.add_employee(name_ar=name_ar, name_en=name_en)
+        logger.info(f"Created employee record: {employee.id}")
+
         self._store_enrollment(wizard, employee.id)
         self.feedback.set_status("enrollment_success", "green")
         logger.info(f"Enrollment complete for {name_en}")
         return True
 
     def _store_enrollment(self, wizard: EnrollmentWizard, employee_id: str):
-        extractor = EmbeddingExtractor()
+        model_path = self._get_model_path()
+        extractor = EmbeddingExtractor(model_path=model_path if model_path else None)
         detector = FaceDetector()
 
         for pose in ["center", "left", "right", "up", "down"]:
             best_capture = wizard.get_best_capture(pose)
             if best_capture is None:
+                logger.warning(f"No capture for pose {pose}")
                 continue
 
             face_data = detector.detect_face(best_capture.image)
             if face_data is None:
+                logger.warning(f"No face detected for pose {pose}")
                 continue
 
             face_crop = face_data[0]
@@ -142,7 +149,8 @@ class AttendanceSystem:
 
         pose_detector = PoseDetector()
         scene_analyzer = SceneAnalyzer()
-        extractor = EmbeddingExtractor()
+        model_path = self._get_model_path()
+        extractor = EmbeddingExtractor(model_path=model_path if model_path else None)
         detector = FaceDetector()
 
         if not self.camera.start():

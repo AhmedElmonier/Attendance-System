@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import List, Optional, Tuple
 import logging
 import hashlib
+import onnxruntime as ort
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +50,10 @@ class EmbeddingExtractor:
 
             self._use_placeholder = False
             logger.info(f"Loaded embedding model from {model_path}")
+        except ImportError:
+            raise
+        except RuntimeError:
+            raise
         except Exception as e:
             logger.error(f"Failed to load model: {e}. Using placeholder.")
             self._init_placeholder_model()

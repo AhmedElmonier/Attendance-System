@@ -76,14 +76,36 @@ async def health_check():
         async with pool.acquire() as conn:
             await conn.fetchval("SELECT 1")
         db_status = "connected"
+        return {
+            "status": "healthy",
+            "database": db_status,
+            "timestamp": datetime.utcnow().isoformat(),
+        }
     except Exception:
         db_status = "disconnected"
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "status": "unhealthy",
+                "database": db_status,
+                "timestamp": datetime.utcnow().isoformat(),
+            },
+        )
 
-    return {
-        "status": "healthy",
-        "database": db_status,
-        "timestamp": datetime.utcnow().isoformat(),
-    }
+
+def extract_tenant_from_auth(authorization: Optional[str]) -> Optional[str]:
+    if not authorization:
+        return None
+    if authorization.startswith("Bearer "):
+        token = authorization[7:]
+        try:
+            import base64, json
+
+            payload = json.loads(base64.b64decode(token + "==").decode())
+            return payload.get("tenant_id")
+        except Exception:
+            return None
+    return None
 
 
 @app.post("/api/v1/sync/attendance", response_model=SyncResponse)
@@ -97,17 +119,17 @@ async def sync_attendance(
         f"Received sync batch: {request.batch_id} ({len(request.events)} events)"
     )
 
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing authorization header")
+
+    tenant_id = extract_tenant_from_auth(authorization)
+    if not tenant_id:
+        raise HTTPException(status_code=401, detail="Invalid authorization token")
+
     drift_ok, drift_msg = verify_ntp_drift(request.kiosk_timestamp)
     if not drift_ok:
         logger.warning(f"NTP drift check failed: {drift_msg}")
         raise HTTPException(status_code=400, detail=drift_msg)
-
-    tenant_id = os.getenv("DEFAULT_TENANT_ID")
-    if not tenant_id:
-        logger.error("DEFAULT_TENANT_ID environment variable not set")
-        raise HTTPException(
-            status_code=500, detail="Server configuration error: missing tenant context"
-        )
 
     rejected = []
     synced_count = 0
