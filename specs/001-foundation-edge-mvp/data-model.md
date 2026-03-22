@@ -34,8 +34,8 @@
 The cloud schema mirrors the edge tables but adds multi-tenant scoping and integrity headers.
 
 ### Table: `attendance_events` (Scoped)
+- `id`: UUID (Primary Key)
 - `tenant_id`: UUID (RLS partitioned)
-- `event_id`: UUID
 - `employee_id`: UUID
 - `timestamp`: TIMESTAMPTZ
 - `device_id`: TEXT
