@@ -44,15 +44,24 @@ export default function AuditLogs() {
   );
 
   function handleExportCsv() {
-    const headers = ['Timestamp', 'Actor', 'Action', 'Entity', 'IP Address'];
-    const rows = filteredLogs.map((log) => [
-      log.timestamp,
-      log.actor,
-      log.action,
-      log.entity,
-      log.ip,
-    ]);
-    const csv = [headers, ...rows].map((row) => row.join(',')).join('\n');
+    const DANGEROUS_PREFIXES = ['=', '+', '-', '@'];
+    function sanitizeCell(value: string): string {
+      const prefix = DANGEROUS_PREFIXES.some((p) => value.startsWith(p))
+        ? "'"
+        : '';
+      const escaped = value.replace(/"/g, '""');
+      return `${prefix}"${escaped}"`;
+    }
+
+    const headerRow = ['Timestamp', 'Actor', 'Action', 'Entity', 'IP Address']
+      .map(sanitizeCell)
+      .join(',');
+    const dataRows = filteredLogs.map((log) =>
+      [log.timestamp, log.actor, log.action, log.entity, log.ip]
+        .map(sanitizeCell)
+        .join(','),
+    );
+    const csv = [headerRow, ...dataRows].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

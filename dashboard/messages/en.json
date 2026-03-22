@@ -53,6 +53,8 @@
     "cidrHint": "Example: 192.168.1.0/24 (Allows 192.168.1.0 to 192.168.1.255)",
     "invalidCidr": "Invalid CIDR entries: {entries}",
     "save": "Save Allow-list",
+    "saving": "Saving...",
+    "saveSuccess": "Settings saved successfully.",
     "enabled": "Enabled",
     "disabled": "Disabled"
   },

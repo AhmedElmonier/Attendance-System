@@ -11,8 +11,8 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from cloud.src.core.security import verify_event_integrity, verify_ntp_drift
-from cloud.src.db.connection import Database, get_db
+from src.core.security import verify_event_integrity, verify_ntp_drift
+from src.db.connection import Database, get_db
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

@@ -33,17 +33,43 @@ function validateIpList(ipList: string): string[] {
 
 export default function SecuritySettings() {
   const [ipEnabled, setIpEnabled] = useState(false);
-  const [ipList, setIpList] = useState("192.168.1.0/24\n10.0.0.0/8");
+  const [ipList, setIpList] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true);
   const t = useTranslations('Security');
+
+  useEffect(() => {
+    async function loadSettings() {
+      try {
+        const res = await fetch('/api/v1/settings/security/ip-allowlist', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
+          },
+        });
+        if (!res.ok) throw new Error(`Load failed: ${res.status}`);
+        const data = await res.json();
+        setIpEnabled(data.enabled ?? false);
+        setIpList((data.allowed_cidrs ?? []).join('\n'));
+        setValidationError(null);
+        setSaveError(null);
+      } catch (err) {
+        setSaveError(err instanceof Error ? err.message : 'Failed to load settings');
+      } finally {
+        setIsLoadingSettings(false);
+      }
+    }
+    loadSettings();
+  }, []);
 
   function handleIpListChange(value: string) {
     setIpList(value);
     const invalid = validateIpList(value);
     setValidationError(invalid.length > 0 ? t('invalidCidr', { entries: invalid.join(', ') }) : null);
     setSaveError(null);
+    setSaveSuccess(false);
   }
 
   async function handleSave() {
@@ -55,6 +81,7 @@ export default function SecuritySettings() {
     setValidationError(null);
     setIsSaving(true);
     setSaveError(null);
+    setSaveSuccess(false);
     try {
       const res = await fetch('/api/v1/settings/security/ip-allowlist', {
         method: 'PUT',
@@ -68,6 +95,8 @@ export default function SecuritySettings() {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.detail || `Save failed: ${res.status}`);
       }
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 4000);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
       setSaveError(msg);
@@ -88,12 +117,13 @@ export default function SecuritySettings() {
           </div>
           <div className="flex items-center">
             <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                className="sr-only peer"
-                checked={ipEnabled}
-                onChange={() => setIpEnabled(!ipEnabled)}
-              />
+            <input
+              type="checkbox"
+              className="sr-only peer"
+              checked={ipEnabled}
+              onChange={() => { setIpEnabled(!ipEnabled); setSaveSuccess(false); }}
+              disabled={isLoadingSettings}
+            />
               <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
             </label>
             <span className="ms-3 text-sm font-medium text-slate-900">
@@ -111,7 +141,7 @@ export default function SecuritySettings() {
             className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono text-sm"
             value={ipList}
             onChange={(e) => handleIpListChange(e.target.value)}
-            disabled={!ipEnabled}
+            disabled={!ipEnabled || isLoadingSettings}
           />
           {validationError && (
             <p className="text-xs text-red-600 mt-2">{validationError}</p>
@@ -119,12 +149,15 @@ export default function SecuritySettings() {
           {saveError && (
             <p className="text-xs text-red-600 mt-2">{saveError}</p>
           )}
+          {saveSuccess && (
+            <p className="text-xs text-green-600 mt-2">{t('saveSuccess')}</p>
+          )}
           <p className="text-xs text-slate-500 mt-2">{t('cidrHint')}</p>
 
           <div className="mt-6 flex justify-end">
             <button
               className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50"
-              disabled={!ipEnabled || validationError !== null || isSaving}
+              disabled={!ipEnabled || validationError !== null || isSaving || isLoadingSettings}
               onClick={handleSave}
             >
               {isSaving ? t('saving') : t('save')}

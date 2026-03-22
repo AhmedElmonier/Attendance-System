@@ -83,9 +83,13 @@ class ApprovalService:
         request.reason = reason
 
         if action == "APPROVED":
-            apply_changes(
-                request.entity_type, request.entity_id, request.change_payload
-            )
+            try:
+                apply_changes(
+                    request.entity_type, request.entity_id, request.change_payload
+                )
+            except NotImplementedError as e:
+                self.db.rollback()
+                raise ValueError(str(e)) from e
 
         try:
             self.db.commit()
