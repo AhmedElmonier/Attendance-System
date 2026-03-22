@@ -1,4 +1,3 @@
-import base64
 import json
 import logging
 import os
@@ -7,6 +6,7 @@ from datetime import datetime
 from typing import Optional, List
 
 import asyncpg
+import jwt
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -56,9 +56,12 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down Attendance API")
 
 
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "").split(",") or [
-    "http://localhost:3000"
-]
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "")
+ALLOWED_ORIGINS = (
+    [o.strip() for o in _raw_origins.split(",") if o.strip()]
+    if _raw_origins
+    else ["http://localhost:3000"]
+)
 
 app = FastAPI(
     title="Attendance System API",
@@ -116,9 +119,9 @@ async def readiness_check():
 
 def extract_tenant_from_auth(authorization: Optional[str]) -> Optional[str]:
     """
-    Extract tenant_id from a Bearer token.
-    Token format: base64-encoded JSON with 'tenant_id' field.
-    Returns None if token is invalid or missing.
+    Extract tenant_id from a Bearer JWT token.
+    Verifies token using JWT_SECRET environment variable.
+    Returns None if token is invalid, expired, or missing tenant_id.
     """
     if not authorization:
         return None
@@ -128,12 +131,24 @@ def extract_tenant_from_auth(authorization: Optional[str]) -> Optional[str]:
         return None
 
     token = authorization[7:]
+    jwt_secret = os.getenv("JWT_SECRET")
+
+    if not jwt_secret:
+        logger.error("JWT_SECRET environment variable not configured")
+        return None
 
     try:
-        decoded = base64.b64decode(token + "==").decode("utf-8")
-        payload = json.loads(decoded)
-    except (ValueError, json.JSONDecodeError, UnicodeDecodeError) as e:
-        logger.warning(f"Failed to decode token: {e}")
+        payload = jwt.decode(
+            token,
+            jwt_secret,
+            algorithms=["HS256"],
+            options={"require": ["tenant_id", "exp"]},
+        )
+    except jwt.ExpiredSignatureError:
+        logger.warning("Token has expired")
+        return None
+    except jwt.InvalidTokenError as e:
+        logger.warning(f"Invalid token: {e}")
         return None
 
     tenant_id = payload.get("tenant_id")
