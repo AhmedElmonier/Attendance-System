@@ -62,7 +62,7 @@ def test_maker_checker_self_approval_blocked():
         service.review_request(req_id, tenant_id, maker_id, "APPROVED")
 
 
-def test_maker_checker_approval_succeeds_for_different_users():
+def test_review_request_raises_when_apply_changes_not_implemented():
     req_id = uuid4()
     maker_id = uuid4()
     checker_id = uuid4()

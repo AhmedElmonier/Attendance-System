@@ -169,19 +169,14 @@ async def action_approval(
             except NotImplementedError as e:
                 raise HTTPException(status_code=501, detail=str(e)) from e
 
-        await pool.execute(
+        updated = await pool.fetchrow(
             "UPDATE approval_requests "
             "SET status = $1, checker_id = $2, reason = $3 "
-            "WHERE id = $4",
+            "WHERE id = $4 "
+            "RETURNING id, entity_type, status, maker_id, checker_id",
             payload.action,
             checker_id,
             payload.reason,
-            approval_id,
-        )
-
-        updated = await pool.fetchrow(
-            "SELECT id, entity_type, status, maker_id, checker_id "
-            "FROM approval_requests WHERE id = $1",
             approval_id,
         )
         return {
@@ -221,7 +216,7 @@ async def search_audit_logs(request: Request, actor_id: Optional[UUID] = None):
             {
                 "id": r["id"],
                 "actor": r["actor_id"],
-                "actor_name": str(r["actor_id"]),
+                "actor_name": None,  # TODO: JOIN users table when schema is ready
                 "action": r["action"],
                 "entity": r["entity_type"],
                 "ip": r["ip_address"],
