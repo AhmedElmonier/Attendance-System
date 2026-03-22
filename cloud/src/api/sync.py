@@ -11,8 +11,8 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from cloud.src.core.security import verify_event_integrity, verify_ntp_drift
-from cloud.src.db.connection import Database, get_db
+from src.core.security import verify_event_integrity, verify_ntp_drift
+from src.db.connection import Database, get_db
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -117,25 +117,32 @@ async def readiness_check():
         )
 
 
-def extract_tenant_from_auth(authorization: Optional[str]) -> Optional[str]:
-    """
-    Extract tenant_id from a Bearer JWT token.
-    Verifies token using JWT_SECRET environment variable.
-    Returns None if token is invalid, expired, or missing tenant_id.
+def extract_tenant_from_auth(authorization: Optional[str]) -> str:
+    """Extract and validate tenant_id from Bearer JWT token.
+
+    Args:
+        authorization: Authorization header value (expected format: "Bearer <token>")
+
+    Returns:
+        tenant_id string extracted from JWT payload
+
+    Raises:
+        ValueError: If token is missing, malformed, or missing tenant_id
     """
     if not authorization:
-        return None
+        logger.warning("Missing authorization header")
+        raise ValueError("Missing authorization header")
 
     if not authorization.startswith("Bearer "):
-        logger.warning("Authorization header does not use Bearer scheme")
-        return None
+        logger.warning(f"Invalid authorization format: {authorization[:20]}...")
+        raise ValueError("Authorization must be Bearer token")
 
     token = authorization[7:]
     jwt_secret = os.getenv("JWT_SECRET")
 
     if not jwt_secret:
         logger.error("JWT_SECRET environment variable not configured")
-        return None
+        raise ValueError("Server misconfiguration: JWT_SECRET not set")
 
     try:
         payload = jwt.decode(
@@ -144,18 +151,19 @@ def extract_tenant_from_auth(authorization: Optional[str]) -> Optional[str]:
             algorithms=["HS256"],
             options={"require": ["tenant_id", "exp"]},
         )
-    except jwt.ExpiredSignatureError:
-        logger.warning("Token has expired")
-        return None
+    except jwt.ExpiredSignatureError as e:
+        logger.warning(f"Token expired: {e!s}")
+        raise ValueError(f"Token has expired: {e!s}") from e
     except jwt.InvalidTokenError as e:
-        logger.warning(f"Invalid token: {e}")
-        return None
+        logger.warning(f"Invalid token: {e!s}")
+        raise ValueError(f"Invalid token: {e!s}") from e
 
     tenant_id = payload.get("tenant_id")
     if not tenant_id:
         logger.warning("Token payload missing 'tenant_id' field")
-        return None
+        raise ValueError("Token missing required tenant_id")
 
+    logger.debug(f"Successfully extracted tenant_id: {tenant_id}")
     return tenant_id
 
 
@@ -174,20 +182,12 @@ async def sync_attendance(
         f"Received sync batch: {request.batch_id} ({len(request.events)} events)"
     )
 
-    if not authorization:
-        logger.warning("Sync request missing authorization header")
-        raise HTTPException(
-            status_code=401,
-            detail="Missing authorization header. Bearer token required.",
-        )
-
-    tenant_id = extract_tenant_from_auth(authorization)
-    if not tenant_id:
-        logger.warning("Invalid or expired authorization token")
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid authorization token. Provide a valid Bearer token.",
-        )
+    # Validate and extract tenant_id from token
+    try:
+        tenant_id = extract_tenant_from_auth(authorization)
+    except ValueError as e:
+        logger.warning(f"Authentication failed: {e!s}")
+        raise HTTPException(status_code=401, detail=str(e)) from e
 
     logger.info(f"Authenticated tenant: {tenant_id}")
 
